@@ -103,11 +103,15 @@ class NBAAnalyzerSQL:
 
         age_clause = " AND ".join(age_clauses) if age_clauses else "1=1"
 
+        # DD/TD/閾値パターンに対応した統計式を取得
+        # DD/TD/40PTS+などはカウント用(0/1)、通常カラムは実際の値
+        stat_expr = self._get_stat_expression(label, for_count=False)
+
         # 集計関数
         if aggfunc == "sum":
-            agg_expr = f'SUM(COALESCE(b."{label}", 0))::INTEGER'
+            agg_expr = f'SUM({stat_expr})::INTEGER'
         else:
-            agg_expr = f'ROUND(AVG(b."{label}")::numeric, 1)'
+            agg_expr = f'ROUND(AVG({stat_expr})::numeric, 1)'
 
         query = f"""
         SELECT
@@ -233,11 +237,24 @@ class NBAAnalyzerSQL:
     # 4. 連続試合記録の分析
     # =========================================================================
 
-    def _get_stat_expression(self, label: str) -> str:
+    def _get_stat_expression(self, label: str, for_count: bool = False) -> str:
         """
         統計ラベルに対応するSQL式を返す
-        DD/TDは計算式で動的に判定する
+
+        Parameters
+        ----------
+        label : str
+            統計ラベル（例: PTS, DD, TD, 40PTS+, 20TRB+）
+        for_count : bool
+            True の場合、閾値達成時に1を返す式を生成（回数カウント用）
+
+        Returns
+        -------
+        str
+            SQL式
         """
+        import re
+
         # ダブルダブル: 5カテゴリのうち2つ以上で10以上
         if label == "DD":
             return """
@@ -260,9 +277,19 @@ class NBAAnalyzerSQL:
                     (CASE WHEN COALESCE(b."BLK", 0) >= 10 THEN 1 ELSE 0 END)
                 ) >= 3 THEN 1 ELSE 0 END
             """
+
+        # 閾値パターン: "40PTS+", "20TRB+", "10AST+" など
+        threshold_match = re.match(r'^(\d+)([A-Z0-9]+)\+$', label)
+        if threshold_match:
+            threshold = int(threshold_match.group(1))
+            stat_col = threshold_match.group(2)
+            # 回数カウント用: 達成時に1、未達成時に0
+            return f'CASE WHEN COALESCE(b."{stat_col}", 0) >= {threshold} THEN 1 ELSE 0 END'
+
         # 通常のカラム
-        else:
-            return f'COALESCE(b."{label}", 0)'
+        if for_count:
+            return f'CASE WHEN COALESCE(b."{label}", 0) >= 1 THEN 1 ELSE 0 END'
+        return f'COALESCE(b."{label}", 0)'
 
     def get_consecutive_games(
         self,
