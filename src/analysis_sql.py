@@ -233,6 +233,37 @@ class NBAAnalyzerSQL:
     # 4. 連続試合記録の分析
     # =========================================================================
 
+    def _get_stat_expression(self, label: str) -> str:
+        """
+        統計ラベルに対応するSQL式を返す
+        DD/TDは計算式で動的に判定する
+        """
+        # ダブルダブル: 5カテゴリのうち2つ以上で10以上
+        if label == "DD":
+            return """
+                CASE WHEN (
+                    (CASE WHEN COALESCE(b."PTS", 0) >= 10 THEN 1 ELSE 0 END) +
+                    (CASE WHEN COALESCE(b."TRB", 0) >= 10 THEN 1 ELSE 0 END) +
+                    (CASE WHEN COALESCE(b."AST", 0) >= 10 THEN 1 ELSE 0 END) +
+                    (CASE WHEN COALESCE(b."STL", 0) >= 10 THEN 1 ELSE 0 END) +
+                    (CASE WHEN COALESCE(b."BLK", 0) >= 10 THEN 1 ELSE 0 END)
+                ) >= 2 THEN 1 ELSE 0 END
+            """
+        # トリプルダブル: 5カテゴリのうち3つ以上で10以上
+        elif label == "TD":
+            return """
+                CASE WHEN (
+                    (CASE WHEN COALESCE(b."PTS", 0) >= 10 THEN 1 ELSE 0 END) +
+                    (CASE WHEN COALESCE(b."TRB", 0) >= 10 THEN 1 ELSE 0 END) +
+                    (CASE WHEN COALESCE(b."AST", 0) >= 10 THEN 1 ELSE 0 END) +
+                    (CASE WHEN COALESCE(b."STL", 0) >= 10 THEN 1 ELSE 0 END) +
+                    (CASE WHEN COALESCE(b."BLK", 0) >= 10 THEN 1 ELSE 0 END)
+                ) >= 3 THEN 1 ELSE 0 END
+            """
+        # 通常のカラム
+        else:
+            return f'COALESCE(b."{label}", 0)'
+
     def get_consecutive_games(
         self,
         label: str,
@@ -248,13 +279,18 @@ class NBAAnalyzerSQL:
         game_type_clause = self._get_game_type_clause(game_type, league)
         exclude_clause = self._get_exclude_clause()
 
+        # DD/TDは計算式、それ以外は通常のカラム参照
+        stat_expr = self._get_stat_expression(label)
+        # DD/TDの場合はすでに0/1なので >= 1 チェック、通常カラムも >= 1
+        achieved_expr = f"CASE WHEN ({stat_expr}) >= 1 THEN 1 ELSE 0 END"
+
         # SQLで連続記録を計算（gaps and islands法）
         query = f"""
         WITH numbered AS (
             SELECT
                 b."playerName",
                 g.datetime,
-                CASE WHEN COALESCE(b."{label}", 0) >= 1 THEN 1 ELSE 0 END AS achieved,
+                {achieved_expr} AS achieved,
                 ROW_NUMBER() OVER (PARTITION BY b."playerName" ORDER BY g.datetime) AS rn
             FROM boxscore b
             JOIN games g ON b.game_id = g.game_id
