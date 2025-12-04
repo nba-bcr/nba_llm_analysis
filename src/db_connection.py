@@ -14,8 +14,8 @@ def get_database_url() -> str:
     if url:
         return url
 
-    # ローカル開発用のデフォルト（CA証明書パスを含む）
-    return "postgresql://nba_bcr2022_gmail_co:BAME23qA4SFzHMvrnIGvOQ@hot-sawfish-19099.j77.aws-us-east-1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full"
+    # ローカル開発用のデフォルト
+    return "postgresql://nba_bcr2022_gmail_co:BAME23qA4SFzHMvrnIGvOQ@hot-sawfish-19099.j77.aws-us-east-1.cockroachlabs.cloud:26257/defaultdb?sslmode=require"
 
 
 @contextmanager
