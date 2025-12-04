@@ -92,12 +92,14 @@ class NBAAnalyzerSQL:
         game_type_clause = self._get_game_type_clause(game_type, league)
         exclude_clause = self._get_exclude_clause()
 
-        # 年齢フィルタ
+        # 年齢フィルタ（CockroachDB互換: AGE()関数の代わりに日付差分を使用）
+        # 年齢 = 年の差 - (誕生日がまだ来ていなければ1を引く)
         age_clauses = []
+        age_expr = "EXTRACT(YEAR FROM g.datetime) - EXTRACT(YEAR FROM pi.birth_date) - CASE WHEN EXTRACT(DOY FROM g.datetime) < EXTRACT(DOY FROM pi.birth_date) THEN 1 ELSE 0 END"
         if max_age is not None:
-            age_clauses.append(f"EXTRACT(YEAR FROM AGE(g.datetime::date, pi.birth_date)) <= {max_age}")
+            age_clauses.append(f"pi.birth_date IS NOT NULL AND ({age_expr}) <= {max_age}")
         if min_age is not None:
-            age_clauses.append(f"EXTRACT(YEAR FROM AGE(g.datetime::date, pi.birth_date)) >= {min_age}")
+            age_clauses.append(f"pi.birth_date IS NOT NULL AND ({age_expr}) >= {min_age}")
 
         age_clause = " AND ".join(age_clauses) if age_clauses else "1=1"
 
@@ -239,26 +241,50 @@ class NBAAnalyzerSQL:
         top_n: int = 100,
     ) -> pd.DataFrame:
         """
-        連続試合記録（例: 20得点以上連続試合数）のランキングを取得
+        連続試合記録（例: ダブルダブル連続試合数）のランキングを取得
 
-        注意: SQLで連続記録を計算するのは複雑なため、
-        データを取得してPythonで処理する
+        SQLでグループ番号を計算し、連続記録を効率的に取得
         """
         game_type_clause = self._get_game_type_clause(game_type, league)
         exclude_clause = self._get_exclude_clause()
 
-        # まず対象データを取得
+        # SQLで連続記録を計算（gaps and islands法）
         query = f"""
+        WITH numbered AS (
+            SELECT
+                b."playerName",
+                g.datetime,
+                CASE WHEN COALESCE(b."{label}", 0) >= 1 THEN 1 ELSE 0 END AS achieved,
+                ROW_NUMBER() OVER (PARTITION BY b."playerName" ORDER BY g.datetime) AS rn
+            FROM boxscore b
+            JOIN games g ON b.game_id = g.game_id
+            WHERE {game_type_clause}
+                AND b."PTS" IS NOT NULL
+                {exclude_clause}
+        ),
+        achieved_only AS (
+            SELECT
+                "playerName",
+                rn,
+                ROW_NUMBER() OVER (PARTITION BY "playerName" ORDER BY rn) AS achieved_rn
+            FROM numbered
+            WHERE achieved = 1
+        ),
+        grouped AS (
+            SELECT
+                "playerName",
+                rn - achieved_rn AS grp,
+                COUNT(*) AS streak
+            FROM achieved_only
+            GROUP BY "playerName", rn - achieved_rn
+        )
         SELECT
-            b."playerName",
-            g.datetime,
-            CASE WHEN b."{label}" >= 1 THEN 1 ELSE 0 END AS achieved
-        FROM boxscore b
-        JOIN games g ON b.game_id = g.game_id
-        WHERE {game_type_clause}
-            AND b."PTS" IS NOT NULL
-            {exclude_clause}
-        ORDER BY b."playerName", g.datetime
+            "playerName",
+            MAX(streak)::INTEGER AS "{label}"
+        FROM grouped
+        GROUP BY "playerName"
+        ORDER BY "{label}" DESC
+        LIMIT {top_n}
         """
 
         with get_connection() as conn:
@@ -267,24 +293,7 @@ class NBAAnalyzerSQL:
         if df.empty:
             return pd.DataFrame(columns=["playerName", label])
 
-        # Pythonで連続記録を計算
-        def count_max_consecutive(group):
-            values = group['achieved'].tolist()
-            count = 0
-            max_count = 0
-            for val in values:
-                if val == 1:
-                    count += 1
-                    max_count = max(max_count, count)
-                else:
-                    count = 0
-            return max_count
-
-        result = df.groupby('playerName').apply(count_max_consecutive).reset_index()
-        result.columns = ['playerName', label]
-        result = result.sort_values(label, ascending=False).head(top_n)
-
-        return result
+        return df
 
     # =========================================================================
     # 5. n試合スパン分析
@@ -362,12 +371,12 @@ class NBAAnalyzerSQL:
         game_type_clause = self._get_game_type_clause(game_type)
         exclude_clause = self._get_exclude_clause()
 
-        # 特定選手フィルタ
+        # 特定選手フィルタ（duelsのカラム名はplayer1, player2）
         player_filter = ""
         if player1:
-            player_filter += f" AND (p1.\"playerName\" LIKE '%{player1}%' OR p2.\"playerName\" LIKE '%{player1}%')"
+            player_filter += f" AND (d.player1 LIKE '%{player1}%' OR d.player2 LIKE '%{player1}%')"
         if player2:
-            player_filter += f" AND (p1.\"playerName\" LIKE '%{player2}%' OR p2.\"playerName\" LIKE '%{player2}%')"
+            player_filter += f" AND (d.player1 LIKE '%{player2}%' OR d.player2 LIKE '%{player2}%')"
 
         query = f"""
         WITH top_scorers AS (
