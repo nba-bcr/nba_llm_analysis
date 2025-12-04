@@ -278,6 +278,11 @@ class NBAAnalyzerSQL:
                 ) >= 3 THEN 1 ELSE 0 END
             """
 
+        # 勝利: 選手のチームが試合の勝者と一致するか
+        # gamesテーブルのWinnerカラムと比較
+        elif label == "Win":
+            return 'CASE WHEN b."teamName" = g."Winner" THEN 1 ELSE 0 END'
+
         # 閾値パターン: "40PTS+", "20TRB+", "10AST+" など
         threshold_match = re.match(r'^(\d+)([A-Z0-9]+)\+$', label)
         if threshold_match:
