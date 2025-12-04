@@ -62,7 +62,7 @@ def merge_player_image(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def execute_analysis(parsed: dict) -> tuple[Optional[pd.DataFrame], str]:
+def execute_analysis(parsed: dict):
     """
     LLMが解釈した結果を元に分析を実行
 

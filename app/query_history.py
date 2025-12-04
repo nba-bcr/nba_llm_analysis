@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict
 
 # 履歴ファイルのパス
 HISTORY_FILE = Path(__file__).parent.parent / "data" / "query_history.json"
@@ -12,7 +12,7 @@ HISTORY_FILE = Path(__file__).parent.parent / "data" / "query_history.json"
 MAX_HISTORY = 100
 
 
-def load_history() -> list[dict]:
+def load_history() -> List[Dict]:
     """履歴を読み込む"""
     if not HISTORY_FILE.exists():
         return []
@@ -58,7 +58,7 @@ def save_query(query: str, description: str, function: Optional[str] = None) -> 
         json.dump(history, f, ensure_ascii=False, indent=2)
 
 
-def get_recent_queries(limit: int = 10) -> list[str]:
+def get_recent_queries(limit: int = 10) -> List[str]:
     """
     最近の質問を取得（新しい順）
 
@@ -74,7 +74,7 @@ def get_recent_queries(limit: int = 10) -> list[str]:
     return [item["query"] for item in history[:limit]]
 
 
-def get_popular_queries(limit: int = 10) -> list[str]:
+def get_popular_queries(limit: int = 10) -> List[str]:
     """
     よく使われる質問パターンを取得
     （将来的にカウント機能を追加可能）
