@@ -11,6 +11,14 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
+# Streamlitバージョン互換性対応
+def rerun():
+    """st.rerun() または rerun() を呼び出す"""
+    if hasattr(st, 'rerun'):
+        st.rerun()
+    else:
+        rerun()
+
 from app.styles import CUSTOM_CSS, get_plotly_theme, get_bar_color
 from app.llm_interpreter import interpret_query, is_valid_interpretation, generate_analysis_comment
 from app.executor_sql import execute_analysis, get_value_column
@@ -57,7 +65,7 @@ def render_sidebar():
         for example in examples:
             if st.button(example, key=f"example_{example}", use_container_width=True):
                 st.session_state.pending_query = example
-                st.experimental_rerun()
+                rerun()
 
         st.markdown("---")
 
@@ -78,7 +86,7 @@ def render_sidebar():
             for q in recent_queries:
                 if st.button(q, key=f"history_{q}", use_container_width=True):
                     st.session_state.pending_query = q
-                    st.experimental_rerun()
+                    rerun()
 
         # フッター
         st.markdown("---")
@@ -326,7 +334,7 @@ def main():
         query = st.session_state.pending_query
         del st.session_state.pending_query
         process_query(query)
-        st.experimental_rerun()
+        rerun()
 
     # テキスト入力
     with st.form(key="query_form", clear_on_submit=True):
@@ -334,7 +342,7 @@ def main():
         submit = st.form_submit_button("🔍 分析する")
         if submit and prompt:
             process_query(prompt.strip())
-            st.experimental_rerun()
+            rerun()
 
 
 if __name__ == "__main__":
