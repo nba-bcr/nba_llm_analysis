@@ -57,7 +57,7 @@ def render_sidebar():
         for example in examples:
             if st.button(example, key=f"example_{example}", use_container_width=True):
                 st.session_state.pending_query = example
-                st.rerun()
+                st.experimental_rerun()
 
         st.markdown("---")
 
@@ -78,7 +78,7 @@ def render_sidebar():
             for q in recent_queries:
                 if st.button(q, key=f"history_{q}", use_container_width=True):
                     st.session_state.pending_query = q
-                    st.rerun()
+                    st.experimental_rerun()
 
         # フッター
         st.markdown("---")
@@ -310,27 +310,31 @@ def main():
     # サイドバー
     render_sidebar()
 
-    # チャット履歴を表示
+    # チャット履歴を表示（古いStreamlit互換）
     for idx, msg in enumerate(st.session_state.messages):
-        with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🏀"):
-            st.write(msg["content"])
-
+        if msg["role"] == "user":
+            st.markdown(f"**👤 質問:** {msg['content']}")
+        else:
+            st.markdown(f"**🏀 回答:** {msg['content']}")
             # 結果がある場合は表示
             if "result" in msg:
                 render_result(msg["result"], msg.get("parsed", {}), idx, msg.get("comment", ""), msg.get("query", ""))
+        st.markdown("---")
 
     # サイドバーの例からのクエリをチェック
     if "pending_query" in st.session_state:
         query = st.session_state.pending_query
         del st.session_state.pending_query
         process_query(query)
-        st.rerun()
+        st.experimental_rerun()
 
-    # チャット入力（Enterで送信）
-    prompt = st.chat_input("分析したいことを入力（例: コービー対レブロンのデュエル）")
-    if prompt:
-        process_query(prompt.strip())
-        st.rerun()
+    # テキスト入力
+    with st.form(key="query_form", clear_on_submit=True):
+        prompt = st.text_input("分析したいことを入力（例: コービー対レブロンのデュエル）")
+        submit = st.form_submit_button("🔍 分析する")
+        if submit and prompt:
+            process_query(prompt.strip())
+            st.experimental_rerun()
 
 
 if __name__ == "__main__":
