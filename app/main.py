@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 
 from app.styles import CUSTOM_CSS, get_plotly_theme, get_bar_color
 from app.llm_interpreter import interpret_query, is_valid_interpretation, generate_analysis_comment
-from app.executor import execute_analysis, get_value_column
+from app.executor_sql import execute_analysis, get_value_column
 from app.query_history import save_query, get_recent_queries
 
 
