@@ -1,6 +1,7 @@
 """NBA Stats Chat - Streamlitアプリ メインエントリポイント"""
 
 import sys
+import random
 import urllib.parse
 from pathlib import Path
 
@@ -20,9 +21,185 @@ def rerun():
         rerun()
 
 from app.styles import CUSTOM_CSS, get_plotly_theme, get_bar_color
-from app.llm_interpreter import interpret_query, is_valid_interpretation, generate_analysis_comment
+from app.llm_interpreter import (
+    interpret_query,
+    is_valid_interpretation,
+    generate_analysis_comment,
+    generate_fallback_response,
+)
 from app.executor_sql import execute_analysis, get_value_column
 from app.query_history import save_query, get_recent_queries
+
+
+# NBA公式YouTubeハイライト動画設定
+# 複数の短いハイライト動画からランダム選択
+NBA_HIGHLIGHT_VIDEOS = [
+    ("MTf2fczHLVc", 0),    # NBA Top 10 Plays
+    ("pMe1yxV5vY8", 0),    # Best Dunks 2024
+    ("ZVkf2aTPYQk", 0),    # NBA Highlights
+    ("Mz8TpX1SBCM", 0),    # Top Plays
+    ("H0a5HBUvfCU", 0),    # Best Moments
+]
+
+
+def get_random_highlight_video() -> tuple[str, int]:
+    """ランダムなハイライト動画の(video_id, start_time)を返す"""
+    return random.choice(NBA_HIGHLIGHT_VIDEOS)
+
+
+def show_youtube_video(video_id: str, start_time: int = 0, muted: bool = True):
+    """
+    YouTube動画をiframe埋め込みで表示
+
+    Args:
+        video_id: YouTube動画ID
+        start_time: 開始秒数
+        muted: ミュートするかどうか
+    """
+    import streamlit.components.v1 as components
+
+    mute_param = "1" if muted else "0"
+    iframe_html = f'''
+    <div style="display: flex; justify-content: center; margin: 1rem 0;">
+        <iframe
+            width="560"
+            height="315"
+            src="https://www.youtube.com/embed/{video_id}?autoplay=1&mute={mute_param}&start={start_time}"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+        </iframe>
+    </div>
+    '''
+    components.html(iframe_html, height=350)
+
+
+def get_suggested_analyses(query: str) -> list[str]:
+    """
+    ユーザークエリに基づいて関連する分析を提案
+
+    Args:
+        query: ユーザーの質問
+
+    Returns:
+        list: 提案する分析例のリスト
+    """
+    query_lower = query.lower()
+
+    # キーワードベースの提案マッピング
+    suggestions_map = {
+        # 得点関連
+        ("得点", "スコアラー", "点", "pts", "ポイント", "scoring"): [
+            "通算得点ランキング",
+            "プレイオフでの40得点ゲーム回数",
+            "10試合スパンでの最高合計得点",
+        ],
+        # アシスト関連
+        ("アシスト", "パス", "ast", "assist"): [
+            "通算アシストランキング",
+            "連続2桁アシスト記録",
+            "ターンオーバー0で10アシスト以上の回数",
+        ],
+        # リバウンド関連
+        ("リバウンド", "trb", "reb", "rebound"): [
+            "通算リバウンドランキング",
+            "連続ダブルダブル記録",
+            "20リバウンド以上の試合回数",
+        ],
+        # GOAT・最高関連
+        ("goat", "最高", "史上最高", "ベスト", "最強", "best"): [
+            "通算得点ランキング",
+            "ファイナルでの得点ランキング",
+            "連続ダブルダブル記録TOP20",
+        ],
+        # 特定選手
+        ("レブロン", "lebron", "ジェームズ"): [
+            "レブロンのデュエル記録",
+            "35歳以上の通算得点ランキング",
+        ],
+        ("コービー", "kobe", "ブライアント"): [
+            "コービーのデュエル記録",
+            "プレイオフでの40得点ゲーム回数",
+        ],
+        ("マイケル", "ジョーダン", "jordan", "mj"): [
+            "ファイナルでの得点ランキング",
+            "プレイオフ通算得点ランキング",
+        ],
+        # 年齢関連
+        ("若い", "若手", "年齢", "age"): [
+            "25歳時点での通算得点ランキング",
+            "1万得点到達までの試合数",
+        ],
+        # プレイオフ関連
+        ("プレイオフ", "playoff", "ポストシーズン"): [
+            "プレイオフでの40得点ゲーム回数",
+            "ファイナルでの得点ランキング",
+        ],
+        # 連続記録関連
+        ("連続", "streak", "連勝", "consecutive"): [
+            "連続ダブルダブル記録TOP20",
+            "連勝記録ランキング",
+        ],
+        # 対戦関連
+        ("対戦", "デュエル", "vs", "対決", "head to head"): [
+            "ゲーム別のベストデュエルランキング",
+            "レブロン対カリーのデュエル",
+        ],
+    }
+
+    suggestions = []
+    for keywords, examples in suggestions_map.items():
+        if any(kw in query_lower for kw in keywords):
+            suggestions.extend(examples)
+
+    # 重複を除去し、最大3件に制限
+    seen = set()
+    unique_suggestions = []
+    for s in suggestions:
+        if s not in seen:
+            seen.add(s)
+            unique_suggestions.append(s)
+        if len(unique_suggestions) >= 3:
+            break
+
+    # 該当なしの場合はデフォルト提案
+    if not unique_suggestions:
+        unique_suggestions = [
+            "25歳時点での通算得点ランキング",
+            "連続ダブルダブル記録TOP20",
+            "ゲーム別のベストデュエルランキング",
+        ]
+
+    return unique_suggestions
+
+
+def render_fallback_response(query: str, error_message: str):
+    """
+    フォールバック応答を表示（LLM回答 + 代替分析提案）
+
+    Args:
+        query: ユーザーの元のクエリ
+        error_message: エラーメッセージまたは説明
+    """
+    st.warning(f"⚠️ この質問はデータベース分析の対象外です")
+
+    # LLMによる一般回答を生成
+    with st.spinner("一般的な情報を検索中..."):
+        fallback_text = generate_fallback_response(query)
+
+    st.markdown("### 💬 一般的な情報")
+    st.info(fallback_text)
+
+    # 代替分析の提案
+    st.markdown("### 📊 代わりにこんな分析はいかがですか？")
+    suggestions = get_suggested_analyses(query)
+
+    cols = st.columns(len(suggestions))
+    for idx, suggestion in enumerate(suggestions):
+        with cols[idx]:
+            if st.button(f"📊 {suggestion}", key=f"suggest_{hash(query)}_{idx}"):
+                st.session_state.pending_query = suggestion
+                rerun()
 
 
 # ページ設定
@@ -263,43 +440,63 @@ def process_query(query: str):
         "content": query,
     })
 
+    # プレースホルダーを作成
+    video_placeholder = st.empty()
+
+    # 動画を表示
+    with video_placeholder.container():
+        st.markdown("### 🏀 分析中...")
+        st.caption("分析が完了するまでNBAハイライトをお楽しみください")
+        video_id, start_time = get_random_highlight_video()
+        show_youtube_video(video_id, start_time)
+
     # LLMで解釈
-    with st.spinner("🏀 分析中..."):
-        parsed = interpret_query(query)
+    parsed = interpret_query(query)
 
-        if is_valid_interpretation(parsed):
-            # 分析実行
-            result, message = execute_analysis(parsed)
+    if is_valid_interpretation(parsed):
+        # 分析実行
+        result, message = execute_analysis(parsed)
 
-            if result is not None:
-                # 考察コメントを生成
-                comment = generate_analysis_comment(query, result, parsed)
+        # 動画を削除
+        video_placeholder.empty()
 
-                # 成功した質問を履歴に保存
-                save_query(
-                    query=query,
-                    description=message,
-                    function=parsed.get("function")
-                )
+        if result is not None:
+            # 考察コメントを生成
+            comment = generate_analysis_comment(query, result, parsed)
 
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": message,
-                    "result": result,
-                    "parsed": parsed,
-                    "comment": comment,
-                    "query": query,
-                })
-            else:
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": message,
-                })
-        else:
+            # 成功した質問を履歴に保存
+            save_query(
+                query=query,
+                description=message,
+                function=parsed.get("function")
+            )
+
             st.session_state.messages.append({
                 "role": "assistant",
-                "content": parsed.get("description", "リクエストを解釈できませんでした"),
+                "content": message,
+                "result": result,
+                "parsed": parsed,
+                "comment": comment,
+                "query": query,
             })
+        else:
+            # 分析失敗時のフォールバック
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": message,
+                "is_fallback": True,
+                "original_query": query,
+            })
+    else:
+        # 動画を削除
+        video_placeholder.empty()
+        # 解釈失敗時のフォールバック
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": parsed.get("description", "リクエストを解釈できませんでした"),
+            "is_fallback": True,
+            "original_query": query,
+        })
 
 
 def main():
@@ -327,6 +524,9 @@ def main():
             # 結果がある場合は表示
             if "result" in msg:
                 render_result(msg["result"], msg.get("parsed", {}), idx, msg.get("comment", ""), msg.get("query", ""))
+            elif msg.get("is_fallback"):
+                # フォールバック応答を表示
+                render_fallback_response(msg.get("original_query", ""), msg["content"])
         st.markdown("---")
 
     # サイドバーの例からのクエリをチェック
