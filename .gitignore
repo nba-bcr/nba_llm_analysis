@@ -23,7 +23,8 @@ Thumbs.db
 .streamlit/secrets.toml
 
 # Data (stored in Databricks Volume for production)
-data/
+data/*
+!data/videos/
 
 # Logs
 *.log

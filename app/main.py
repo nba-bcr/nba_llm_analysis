@@ -31,47 +31,29 @@ from app.executor_sql import execute_analysis, get_value_column
 from app.query_history import save_query, get_recent_queries
 
 
-# NBA公式YouTubeハイライト動画設定
-# 複数の短いハイライト動画からランダム選択
-NBA_HIGHLIGHT_VIDEOS = [
-    ("MTf2fczHLVc", 0),    # NBA Top 10 Plays
-    ("pMe1yxV5vY8", 0),    # Best Dunks 2024
-    ("ZVkf2aTPYQk", 0),    # NBA Highlights
-    ("Mz8TpX1SBCM", 0),    # Top Plays
-    ("H0a5HBUvfCU", 0),    # Best Moments
-]
+# NBAハイライト動画設定
+# data/videos/ フォルダ内のMP4ファイルからランダム選択
+VIDEOS_DIR = Path(__file__).parent.parent / "data" / "videos"
 
 
-def get_random_highlight_video() -> tuple[str, int]:
-    """ランダムなハイライト動画の(video_id, start_time)を返す"""
-    return random.choice(NBA_HIGHLIGHT_VIDEOS)
+def get_random_highlight_video() -> Path | None:
+    """ランダムなハイライト動画のパスを返す"""
+    if not VIDEOS_DIR.exists():
+        return None
+    videos = list(VIDEOS_DIR.glob("*.mp4"))
+    if not videos:
+        return None
+    return random.choice(videos)
 
 
-def show_youtube_video(video_id: str, start_time: int = 0, muted: bool = True):
-    """
-    YouTube動画をiframe埋め込みで表示
-
-    Args:
-        video_id: YouTube動画ID
-        start_time: 開始秒数
-        muted: ミュートするかどうか
-    """
-    import streamlit.components.v1 as components
-
-    mute_param = "1" if muted else "0"
-    iframe_html = f'''
-    <div style="display: flex; justify-content: center; margin: 1rem 0;">
-        <iframe
-            width="560"
-            height="315"
-            src="https://www.youtube.com/embed/{video_id}?autoplay=1&mute={mute_param}&start={start_time}"
-            frameborder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen>
-        </iframe>
-    </div>
-    '''
-    components.html(iframe_html, height=350)
+def show_loading_video():
+    """ローディング中の動画を表示"""
+    video_path = get_random_highlight_video()
+    if video_path and video_path.exists():
+        # ファイル名から拡張子を除いてタイトルとして表示
+        video_title = video_path.stem
+        st.markdown(f"**🎬 {video_title}**")
+        st.video(str(video_path), autoplay=True, muted=True, loop=True)
 
 
 def get_suggested_analyses(query: str) -> list[str]:
@@ -445,10 +427,8 @@ def process_query(query: str):
 
     # 動画を表示
     with video_placeholder.container():
-        st.markdown("### 🏀 分析中...")
-        st.caption("分析が完了するまでNBAハイライトをお楽しみください")
-        video_id, start_time = get_random_highlight_video()
-        show_youtube_video(video_id, start_time)
+        st.markdown("### 🏀 分析を実行中です...")
+        show_loading_video()
 
     # LLMで解釈
     parsed = interpret_query(query)
