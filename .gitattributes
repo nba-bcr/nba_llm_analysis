@@ -1,0 +1,2 @@
+# Git LFS removed - using gzip compressed files instead
+*.mp4 filter=lfs diff=lfs merge=lfs -text
