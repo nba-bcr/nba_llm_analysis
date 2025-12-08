@@ -84,6 +84,12 @@ class NBAAnalyzerSQL:
         else:
             return 'AND b."isStarter" = 0'
 
+    def _get_team_clause(self, team: Optional[str]) -> str:
+        """チームフィルタのWHERE句を生成"""
+        if team is None:
+            return ""
+        return f'AND b."teamName" LIKE \'%{team}%\''
+
     def get_ranking_by_age(
         self,
         label: str,
@@ -95,6 +101,7 @@ class NBAAnalyzerSQL:
         game_type: Literal["regular", "playoff", "final", "all"] = "regular",
         top_n: int = 100,
         is_starter: Optional[bool] = None,
+        team: Optional[str] = None,
     ) -> pd.DataFrame:
         """
         任意の年齢範囲でのランキングを取得
@@ -102,6 +109,7 @@ class NBAAnalyzerSQL:
         game_type_clause = self._get_game_type_clause(game_type, league)
         exclude_clause = self._get_exclude_clause()
         starter_clause = self._get_starter_clause(is_starter)
+        team_clause = self._get_team_clause(team)
 
         # 年齢フィルタ（CockroachDB互換: AGE()関数の代わりに日付差分を使用）
         # 年齢 = 年の差 - (誕生日がまだ来ていなければ1を引く)
@@ -136,6 +144,7 @@ class NBAAnalyzerSQL:
             AND b."PTS" IS NOT NULL
             {exclude_clause}
             {starter_clause}
+            {team_clause}
             AND {age_clause}
         GROUP BY b."playerName"
         HAVING COUNT(*) >= {min_games}
@@ -314,6 +323,7 @@ class NBAAnalyzerSQL:
         game_type: Literal["regular", "playoff", "final", "all"] = "regular",
         league: str = "NBA",
         top_n: int = 100,
+        team: Optional[str] = None,
     ) -> pd.DataFrame:
         """
         連続試合記録（例: ダブルダブル連続試合数）のランキングを取得
@@ -322,6 +332,7 @@ class NBAAnalyzerSQL:
         """
         game_type_clause = self._get_game_type_clause(game_type, league)
         exclude_clause = self._get_exclude_clause()
+        team_clause = self._get_team_clause(team)
 
         # DD/TDは計算式、それ以外は通常のカラム参照
         stat_expr = self._get_stat_expression(label)
@@ -341,6 +352,7 @@ class NBAAnalyzerSQL:
             WHERE {game_type_clause}
                 AND b."PTS" IS NOT NULL
                 {exclude_clause}
+                {team_clause}
         ),
         achieved_only AS (
             SELECT
@@ -675,6 +687,67 @@ class NBAAnalyzerSQL:
     # =========================================================================
     # 10. ベンチプレイヤーランキング（シックスマン的分析）
     # =========================================================================
+
+    def get_combined_achievement_count(
+        self,
+        thresholds: dict,
+        game_type: Literal["regular", "playoff", "final", "all"] = "regular",
+        league: str = "NBA",
+        top_n: int = 100,
+    ) -> pd.DataFrame:
+        """
+        複合スタッツ達成回数ランキングを取得
+
+        Parameters
+        ----------
+        thresholds : dict
+            各スタッツの閾値（例: {"PTS": 25, "TRB": 5, "AST": 5}）
+        game_type : str
+            試合タイプ
+        top_n : int
+            取得件数
+
+        Returns
+        -------
+        pd.DataFrame
+            達成回数ランキング
+        """
+        game_type_clause = self._get_game_type_clause(game_type, league)
+        exclude_clause = self._get_exclude_clause()
+
+        # 条件式を構築（すべての閾値を満たす）
+        conditions = []
+        label_parts = []
+        for stat, threshold in thresholds.items():
+            conditions.append(f'COALESCE(b."{stat}", 0) >= {threshold}')
+            label_parts.append(f"{threshold}{stat}")
+
+        combined_label = " & ".join(label_parts)
+        condition_expr = " AND ".join(conditions)
+
+        query = f"""
+        SELECT
+            b."playerName",
+            SUM(CASE WHEN {condition_expr} THEN 1 ELSE 0 END) AS "Count"
+        FROM boxscore b
+        JOIN games g ON b.game_id = g.game_id
+        WHERE {game_type_clause}
+            AND b."PTS" IS NOT NULL
+            {exclude_clause}
+        GROUP BY b."playerName"
+        HAVING SUM(CASE WHEN {condition_expr} THEN 1 ELSE 0 END) > 0
+        ORDER BY "Count" DESC
+        LIMIT {top_n}
+        """
+
+        with get_connection() as conn:
+            df = pd.read_sql(query, conn)
+
+        # カラム名を分かりやすく変更
+        if not df.empty:
+            df = df.rename(columns={"Count": combined_label})
+
+        return df
 
     def get_bench_player_ranking(
         self,

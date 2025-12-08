@@ -13,8 +13,8 @@ SYSTEM_PROMPT = """あなたはNBAスタッツ分析アシスタントです。
    ※「〇歳時点」「〇歳以下」「〇歳まで」はmax_age=〇を使用
 
 2. get_consecutive_games - 連続試合記録
-   params: label(str), game_type(str), top_n(int)
-   例: 連続ダブルダブル記録、連勝記録（label="Win"）
+   params: label(str), game_type(str), top_n(int), team(str)
+   例: 連続ダブルダブル記録、連勝記録（label="Win"）、ペイサーズでの20得点連続試合
 
 3. get_games_to_reach - 到達試合数
    params: label(str), threshold(int), game_type(str), top_n(int)
@@ -56,11 +56,26 @@ SYSTEM_PROMPT = """あなたはNBAスタッツ分析アシスタントです。
     例: ベンチからの得点王ランキング、2023-24シーズンのシックスマンランキング
     ※seasonは開始年（例: 2023で2023-24シーズン）
 
+11. get_combined_achievement_count - 複合スタッツ達成回数
+    params: thresholds(dict), game_type(str), top_n(int)
+    用途: 複数のスタッツ条件を同時に満たした回数ランキング
+    例: 25得点&5リバウンド&5アシスト達成回数、20得点&10アシスト達成回数
+    thresholds形式: {"PTS": 25, "TRB": 5, "AST": 5}
+    対応スタッツ: PTS, TRB, AST, STL, BLK, 3P
+
 ## is_starter パラメータ（get_ranking_by_age対応）
 - is_starter=true: スターター時のみ
 - is_starter=false: ベンチ時のみ
 - 指定なし: 全試合
 例: ベンチ出場時の通算得点ランキング → get_ranking_by_age + is_starter=false
+
+## team パラメータ（get_ranking_by_age対応）
+- 特定チーム所属時の記録のみ抽出
+- 部分一致で検索（例: "Suns"でPhoenix Sunsにマッチ）
+例: サンズでの勝利数ランキング → get_ranking_by_age + label="Win" + team="Suns"
+
+## 主なチーム名
+Lakers, Celtics, Warriors, Bulls, Heat, Suns, Nets, Knicks, Mavericks, Spurs, Clippers, 76ers, Bucks, Nuggets, Rockets, Thunder, Raptors, Timberwolves, Grizzlies, Pelicans, Hawks, Hornets, Cavaliers, Pacers, Magic, Pistons, Kings, Trail Blazers, Jazz, Wizards
 
 ## スタッツラベル
 基本: PTS, TRB, AST, STL, BLK, 3P, FG, Win, DD, TD
@@ -166,6 +181,38 @@ FEW_SHOT_EXAMPLES = [
     {
         "user": "ベンチ出場時の通算得点ランキング",
         "assistant": '{"function": "get_ranking_by_age", "params": {"label": "PTS", "game_type": "regular", "top_n": 50, "aggfunc": "sum", "is_starter": false}, "description": "ベンチ出場時の通算得点ランキングを取得します"}'
+    },
+    {
+        "user": "25得点5リバウンド5アシスト達成回数",
+        "assistant": '{"function": "get_combined_achievement_count", "params": {"thresholds": {"PTS": 25, "TRB": 5, "AST": 5}, "game_type": "regular", "top_n": 50}, "description": "25得点&5リバウンド&5アシスト以上を同時達成した回数ランキングを取得します"}'
+    },
+    {
+        "user": "20得点10アシスト以上の回数",
+        "assistant": '{"function": "get_combined_achievement_count", "params": {"thresholds": {"PTS": 20, "AST": 10}, "game_type": "regular", "top_n": 50}, "description": "20得点&10アシスト以上を同時達成した回数ランキングを取得します"}'
+    },
+    {
+        "user": "30得点10リバウンド達成回数ランキング",
+        "assistant": '{"function": "get_combined_achievement_count", "params": {"thresholds": {"PTS": 30, "TRB": 10}, "game_type": "regular", "top_n": 50}, "description": "30得点&10リバウンド以上を同時達成した回数ランキングを取得します"}'
+    },
+    {
+        "user": "サンズに勝利をもたらした選手TOP30",
+        "assistant": '{"function": "get_ranking_by_age", "params": {"label": "Win", "game_type": "regular", "top_n": 30, "aggfunc": "sum", "team": "Suns"}, "description": "サンズ所属時の勝利数ランキングTOP30を取得します"}'
+    },
+    {
+        "user": "レイカーズでの通算得点",
+        "assistant": '{"function": "get_ranking_by_age", "params": {"label": "PTS", "game_type": "regular", "top_n": 50, "aggfunc": "sum", "team": "Lakers"}, "description": "レイカーズ所属時の通算得点ランキングを取得します"}'
+    },
+    {
+        "user": "ウォリアーズでの3ポイント成功数",
+        "assistant": '{"function": "get_ranking_by_age", "params": {"label": "3P", "game_type": "regular", "top_n": 50, "aggfunc": "sum", "team": "Warriors"}, "description": "ウォリアーズ所属時の3ポイント成功数ランキングを取得します"}'
+    },
+    {
+        "user": "ペイサーズでの20得点連続試合記録",
+        "assistant": '{"function": "get_consecutive_games", "params": {"label": "20PTS+", "game_type": "regular", "top_n": 50, "team": "Pacers"}, "description": "ペイサーズ所属時の20得点以上連続試合記録ランキングを取得します"}'
+    },
+    {
+        "user": "INDでの連勝記録",
+        "assistant": '{"function": "get_consecutive_games", "params": {"label": "Win", "game_type": "regular", "top_n": 50, "team": "Pacers"}, "description": "ペイサーズ所属時の連勝記録ランキングを取得します"}'
     },
 ]
 

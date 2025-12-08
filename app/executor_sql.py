@@ -27,6 +27,7 @@ AVAILABLE_FUNCTIONS = {
     "get_player_career_high",
     "get_player_starter_comparison",
     "get_bench_player_ranking",
+    "get_combined_achievement_count",
 }
 
 
@@ -129,10 +130,10 @@ def _clean_params(func_name: str, params: dict) -> dict:
     allowed_params = {
         "get_ranking_by_age": {
             "label", "max_age", "min_age", "min_games", "aggfunc",
-            "league", "game_type", "top_n", "is_starter"
+            "league", "game_type", "top_n", "is_starter", "team"
         },
         "get_consecutive_games": {
-            "label", "game_type", "league", "top_n"
+            "label", "game_type", "league", "top_n", "team"
         },
         "get_games_to_reach": {
             "label", "threshold", "game_type", "league", "top_n"
@@ -159,6 +160,9 @@ def _clean_params(func_name: str, params: dict) -> dict:
         "get_bench_player_ranking": {
             "label", "game_type", "league", "min_games", "top_n", "season"
         },
+        "get_combined_achievement_count": {
+            "thresholds", "game_type", "league", "top_n"
+        },
     }
 
     allowed = allowed_params.get(func_name, set())
@@ -177,6 +181,14 @@ def _clean_params(func_name: str, params: dict) -> dict:
             try:
                 value = int(value)
             except (ValueError, TypeError):
+                continue
+
+        # dict型（thresholds）の処理
+        if key == "thresholds":
+            if isinstance(value, dict):
+                # 値を整数に変換
+                value = {k: int(v) for k, v in value.items()}
+            else:
                 continue
 
         # bool型変換
