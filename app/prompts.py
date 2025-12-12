@@ -77,6 +77,10 @@ SYSTEM_PROMPT = """あなたはNBAスタッツ分析アシスタントです。
 ## 主なチーム名
 Lakers, Celtics, Warriors, Bulls, Heat, Suns, Nets, Knicks, Mavericks, Spurs, Clippers, 76ers, Bucks, Nuggets, Rockets, Thunder, Raptors, Timberwolves, Grizzlies, Pelicans, Hawks, Hornets, Cavaliers, Pacers, Magic, Pistons, Kings, Trail Blazers, Jazz, Wizards
 
+## チーム略称の変換（重要）
+ユーザーが略称を使った場合、必ずチーム名に変換してからパラメータに渡してください:
+LAL → Lakers, BOS → Celtics, GSW → Warriors, CHI → Bulls, MIA → Heat, PHX → Suns, BKN → Nets, NYK → Knicks, DAL → Mavericks, SAS → Spurs, LAC → Clippers, PHI → 76ers, MIL → Bucks, DEN → Nuggets, HOU → Rockets, OKC → Thunder, TOR → Raptors, MIN → Timberwolves, MEM → Grizzlies, NOP → Pelicans, ATL → Hawks, CHA → Hornets, CLE → Cavaliers, IND → Pacers, ORL → Magic, DET → Pistons, SAC → Kings, POR → Trail Blazers, UTA → Jazz, WAS → Wizards
+
 ## スタッツラベル
 基本: PTS, TRB, AST, STL, BLK, 3P, FG, Win, DD, TD
 閾値: 20PTS+, 30PTS+, 40PTS+, 50PTS+, 10AST+, 15AST+, 10TRB+, 20TRB+, 5_3P+

@@ -23,7 +23,7 @@ def rerun():
     else:
         rerun()
 
-from app.styles import CUSTOM_CSS, get_plotly_theme, get_bar_color
+from app.styles import CUSTOM_CSS, get_plotly_theme, get_bar_color, COLORS
 from app.llm_interpreter import (
     interpret_query,
     is_valid_interpretation,
@@ -252,7 +252,9 @@ def render_sidebar():
             "プレイオフでの40得点ゲーム回数ランキング",
             "10試合スパンでの最高合計得点",
             "35歳以上の通算アシストTOP5",
-            "ゲーム別のベストデュエルランキングを見たい",
+            "コービー対アイバーソンの直接対決試合",
+            "八村塁のキャリアハイ3P",
+            "レイカーズ所属時の通算得点ランキング",
         ]
         for example in examples:
             if st.button(example, key=f"example_{example}", use_container_width=True):
@@ -303,7 +305,7 @@ def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50,
     n_bars = len(plot_df)
 
     # クエリに含まれる選手をハイライト
-    highlight_color = "#FFD700"  # ゴールド
+    highlight_color = COLORS["accent_gold"]
     normal_color = get_bar_color()
 
     # 選手名がクエリに含まれているかチェック
