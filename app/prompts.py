@@ -31,8 +31,9 @@ SYSTEM_PROMPT = """あなたはNBAスタッツ分析アシスタントです。
 
 6. get_duel_ranking - ゲーム別ベストデュエル（両チームトップスコアラー対決）
    params: label(str), game_type(str), min_total(int), player1(str), player2(str), top_n(int)
-   player1のみ: その選手が含まれる対決、player1+player2: 2選手の直接対決
-   例: ファイナル史上最高の得点対決、コービー対レブロン
+   player1のみ: その選手が含まれるトップスコアラー対決
+   player1+player2: 2選手の直接対決全試合（重要: 「〇〇対〇〇」「〇〇vs〇〇」の場合は必ず両方指定）
+   例: ファイナル史上最高の得点対決、コービー対アイバーソン、ステフvsAD
 
 7. get_filtered_achievement_count - 条件付き達成回数
    params: count_column(str), count_threshold(int), filter_column(str), filter_op(str), filter_value(int), game_type(str), top_n(int)
@@ -148,7 +149,15 @@ FEW_SHOT_EXAMPLES = [
     },
     {
         "user": "コービー対レブロンのデュエル",
-        "assistant": '{"function": "get_duel_ranking", "params": {"label": "PTS", "game_type": "all", "player1": "Kobe Bryant", "player2": "LeBron James", "top_n": 50}, "description": "Kobe Bryant vs LeBron Jamesの直接対決ランキングを取得します"}'
+        "assistant": '{"function": "get_duel_ranking", "params": {"label": "PTS", "game_type": "all", "player1": "Kobe Bryant", "player2": "LeBron James", "top_n": 50}, "description": "Kobe Bryant vs LeBron Jamesの直接対決全試合を取得します"}'
+    },
+    {
+        "user": "コービー対アイバーソンの直接対決",
+        "assistant": '{"function": "get_duel_ranking", "params": {"label": "PTS", "game_type": "all", "player1": "Kobe Bryant", "player2": "Allen Iverson", "top_n": 50}, "description": "Kobe Bryant vs Allen Iversonの直接対決全試合を取得します"}'
+    },
+    {
+        "user": "ステフ対AD",
+        "assistant": '{"function": "get_duel_ranking", "params": {"label": "PTS", "game_type": "all", "player1": "Stephen Curry", "player2": "Anthony Davis", "top_n": 100}, "description": "Stephen Curry vs Anthony Davisの直接対決全試合を取得します"}'
     },
     {
         "user": "FTA0で30得点以上の回数",
