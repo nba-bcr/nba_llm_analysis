@@ -23,7 +23,7 @@ def rerun():
     else:
         rerun()
 
-from app.styles import CUSTOM_CSS, get_plotly_theme, get_bar_color, COLORS
+from app.styles import CUSTOM_CSS, get_plotly_theme, get_bar_color, COLORS, get_team_color
 from app.llm_interpreter import (
     interpret_query,
     is_valid_interpretation,
@@ -72,19 +72,34 @@ def get_youtube_embed_url(url: str) -> str:
     return url
 
 
-def show_loading_video() -> Optional[dict]:
-    """ローディング中のYouTube動画を表示し、動画情報を返す"""
+def show_loading_video(use_expander: bool = True) -> Optional[dict]:
+    """ローディング中のYouTube動画を表示し、動画情報を返す
+
+    Args:
+        use_expander: Trueの場合、expanderで開閉可能にする（デフォルト: True）
+    """
     video = get_random_video()
     if video and video.get("url"):
-        st.markdown(f"**🎬 {video['title']}**")
         embed_url = get_youtube_embed_url(video["url"])
-        # YouTube埋め込み（iframe）
-        st.markdown(
-            f'<iframe width="100%" height="400" src="{embed_url}" '
-            f'frameborder="0" allow="accelerometer; autoplay; clipboard-write; '
-            f'encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>',
-            unsafe_allow_html=True
-        )
+
+        if use_expander:
+            # トグルで開閉可能なexpander
+            with st.expander(f"🎬 {video['title']}（クリックで開閉）", expanded=True):
+                st.markdown(
+                    f'<iframe width="100%" height="400" src="{embed_url}" '
+                    f'frameborder="0" allow="accelerometer; autoplay; clipboard-write; '
+                    f'encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>',
+                    unsafe_allow_html=True
+                )
+        else:
+            # 従来通りの表示
+            st.markdown(f"**🎬 {video['title']}**")
+            st.markdown(
+                f'<iframe width="100%" height="400" src="{embed_url}" '
+                f'frameborder="0" allow="accelerometer; autoplay; clipboard-write; '
+                f'encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>',
+                unsafe_allow_html=True
+            )
         return video
     return None
 
@@ -249,12 +264,12 @@ def render_sidebar():
             "連続ダブルダブル記録TOP20",
             "連勝記録ランキング",
             "1万得点到達までの試合数TOP15",
-            "プレイオフでの40得点ゲーム回数ランキング",
+            "プレイオフでの40得点ゲーム回数",
             "10試合スパンでの最高合計得点",
             "35歳以上の通算アシストTOP5",
-            "コービー対アイバーソンの直接対決試合",
+            "コービー対アイバーソンの直接対決",
             "八村塁のキャリアハイ3P",
-            "レイカーズ所属時の通算得点ランキング",
+            "LALの通算得点ランキング",
         ]
         for example in examples:
             if st.button(example, key=f"example_{example}", use_container_width=True):
@@ -298,7 +313,7 @@ def render_sidebar():
         )
 
 
-def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50, highlight_query: str = "") -> go.Figure:
+def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50, highlight_query: str = "", team: str = None) -> go.Figure:
     """横棒グラフを作成（スクロール対応、選手ハイライト機能付き）"""
     # 表示件数を制限
     plot_df = df.head(max_display).copy()
@@ -306,7 +321,9 @@ def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50,
 
     # クエリに含まれる選手をハイライト
     highlight_color = COLORS["accent_gold"]
-    normal_color = get_bar_color()
+    # チーム指定がある場合はチームカラーを使用
+    team_color = get_team_color(team) if team else None
+    normal_color = team_color if team_color else get_bar_color()
 
     # 選手名がクエリに含まれているかチェック
     def should_highlight(player_name: str) -> bool:
@@ -376,6 +393,8 @@ def render_result(result_df, parsed: dict, msg_idx: int, comment: str = "", quer
     """分析結果を表示"""
     value_col = get_value_column(result_df, parsed)
     func_name = parsed.get("function", "")
+    # チーム指定を取得（チームカラー用）
+    team = parsed.get("params", {}).get("team", None)
 
     # デュエル分析はテーブルのみ表示
     if func_name == "get_duel_ranking":
@@ -395,7 +414,8 @@ def render_result(result_df, parsed: dict, msg_idx: int, comment: str = "", quer
                     value_col,
                     title="",  # タイトルは上のコメントと重複するので削除
                     max_display=50,  # 最大50件表示
-                    highlight_query=query  # クエリに含まれる選手をハイライト
+                    highlight_query=query,  # クエリに含まれる選手をハイライト
+                    team=team  # チーム指定時はチームカラーを使用
                 )
                 # スクロール可能なコンテナでラップ
                 with st.container(height=600):
@@ -448,10 +468,16 @@ def render_result(result_df, parsed: dict, msg_idx: int, comment: str = "", quer
 
         st.markdown(
             f'<a href="{twitter_url}" target="_blank" style="'
-            'display: inline-block; padding: 0.5rem 1rem; '
-            'background-color: #1DA1F2; color: white; '
-            'text-decoration: none; border-radius: 0.5rem; '
-            'font-weight: 600;">𝕏 シェア</a>',
+            'display: inline-flex; align-items: center; gap: 0.5rem; '
+            'padding: 0.5rem 1.2rem; '
+            'background-color: #FFFFFF; color: #000000; '
+            'text-decoration: none; border-radius: 2rem; '
+            'font-weight: 700; font-size: 14px; '
+            'box-shadow: 0 2px 4px rgba(0,0,0,0.2); '
+            'transition: all 0.2s;">'
+            '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">'
+            '<path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>'
+            '</svg> ポスト</a>',
             unsafe_allow_html=True
         )
 

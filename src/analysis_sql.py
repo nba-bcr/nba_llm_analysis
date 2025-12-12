@@ -451,7 +451,7 @@ class NBAAnalyzerSQL:
         self,
         games_df=None,  # 互換性のため維持（使用しない）
         label: str = "PTS",
-        game_type: Literal["regular", "playoff", "final", "all"] = "final",
+        game_type: Literal["regular", "playoff", "final", "all"] = "all",
         min_total: int = 0,
         player1: Optional[str] = None,
         player2: Optional[str] = None,
@@ -459,60 +459,106 @@ class NBAAnalyzerSQL:
     ) -> pd.DataFrame:
         """
         両チームのトップスコアラー対決ランキングを取得
+        player1とplayer2の両方が指定された場合は、両選手が出場した全試合を表示
         """
         game_type_clause = self._get_game_type_clause(game_type)
         exclude_clause = self._get_exclude_clause()
 
-        # 特定選手フィルタ（duelsのカラム名はplayer1, player2）
-        player_filter = ""
-        if player1:
-            player_filter += f" AND (d.player1 LIKE '%{player1}%' OR d.player2 LIKE '%{player1}%')"
-        if player2:
-            player_filter += f" AND (d.player1 LIKE '%{player2}%' OR d.player2 LIKE '%{player2}%')"
-
-        query = f"""
-        WITH top_scorers AS (
-            SELECT DISTINCT ON (b.game_id, b."teamName")
-                b.game_id,
-                b."teamName",
-                b."playerName",
-                b."{label}"
-            FROM boxscore b
-            JOIN games g ON b.game_id = g.game_id
-            WHERE {game_type_clause}
-                AND b."PTS" IS NOT NULL
-                {exclude_clause}
-            ORDER BY b.game_id, b."teamName", b."{label}" DESC
-        ),
-        duels AS (
+        # 両選手が指定された場合は、直接対決の全試合を取得（トップスコアラー条件なし）
+        if player1 and player2:
+            query = f"""
+            WITH player1_games AS (
+                SELECT b.game_id, b."playerName", b."{label}", b."teamName"
+                FROM boxscore b
+                JOIN games g ON b.game_id = g.game_id
+                WHERE b."playerName" LIKE '%{player1}%'
+                    AND {game_type_clause}
+                    AND b."{label}" IS NOT NULL
+            ),
+            player2_games AS (
+                SELECT b.game_id, b."playerName", b."{label}", b."teamName"
+                FROM boxscore b
+                JOIN games g ON b.game_id = g.game_id
+                WHERE b."playerName" LIKE '%{player2}%'
+                    AND {game_type_clause}
+                    AND b."{label}" IS NOT NULL
+            ),
+            matchups AS (
+                SELECT
+                    p1.game_id,
+                    p1."playerName" AS player1,
+                    p1."{label}" AS score1,
+                    p2."playerName" AS player2,
+                    p2."{label}" AS score2,
+                    p1."{label}" + p2."{label}" AS "Total{label}"
+                FROM player1_games p1
+                JOIN player2_games p2 ON p1.game_id = p2.game_id
+                WHERE p1."teamName" != p2."teamName"
+            )
             SELECT
-                t1.game_id,
-                t1."playerName" AS player1,
-                t1."{label}" AS score1,
-                t2."playerName" AS player2,
-                t2."{label}" AS score2,
-                t1."{label}" + t2."{label}" AS "Total{label}"
-            FROM top_scorers t1
-            JOIN top_scorers t2
-                ON t1.game_id = t2.game_id
-                AND t1."teamName" < t2."teamName"
-        )
-        SELECT
-            ROW_NUMBER() OVER (ORDER BY d."Total{label}" DESC) AS "Rank",
-            g.datetime,
-            g."seasonStartYear"::TEXT || '-' || (g."seasonStartYear" + 1)::TEXT AS "Season",
-            d.player1 || ' vs ' || d.player2 AS "playerName",
-            d.score1::TEXT || ' - ' || d.score2::TEXT AS "Score",
-            d."Total{label}",
-            g."awayTeam" || ' @ ' || g."homeTeam" AS "MatchUp",
-            g."pointsAway"::TEXT || '-' || g."pointsHome"::TEXT AS "GameScore"
-        FROM duels d
-        JOIN games g ON d.game_id = g.game_id
-        WHERE d."Total{label}" >= {min_total}
-            {player_filter}
-        ORDER BY d."Total{label}" DESC
-        LIMIT {top_n}
-        """
+                ROW_NUMBER() OVER (ORDER BY m."Total{label}" DESC) AS "Rank",
+                g.datetime,
+                g."seasonStartYear"::TEXT || '-' || (g."seasonStartYear" + 1)::TEXT AS "Season",
+                m.player1 || ' vs ' || m.player2 AS "playerName",
+                m.score1::TEXT || ' - ' || m.score2::TEXT AS "Score",
+                m."Total{label}",
+                g."awayTeam" || ' @ ' || g."homeTeam" AS "MatchUp",
+                g."pointsAway"::TEXT || '-' || g."pointsHome"::TEXT AS "GameScore"
+            FROM matchups m
+            JOIN games g ON m.game_id = g.game_id
+            WHERE m."Total{label}" >= {min_total}
+            ORDER BY m."Total{label}" DESC
+            LIMIT {top_n}
+            """
+        else:
+            # 従来のトップスコアラー対決ランキング
+            player_filter = ""
+            if player1:
+                player_filter += f" AND (d.player1 LIKE '%{player1}%' OR d.player2 LIKE '%{player1}%')"
+
+            query = f"""
+            WITH top_scorers AS (
+                SELECT DISTINCT ON (b.game_id, b."teamName")
+                    b.game_id,
+                    b."teamName",
+                    b."playerName",
+                    b."{label}"
+                FROM boxscore b
+                JOIN games g ON b.game_id = g.game_id
+                WHERE {game_type_clause}
+                    AND b."PTS" IS NOT NULL
+                    {exclude_clause}
+                ORDER BY b.game_id, b."teamName", b."{label}" DESC
+            ),
+            duels AS (
+                SELECT
+                    t1.game_id,
+                    t1."playerName" AS player1,
+                    t1."{label}" AS score1,
+                    t2."playerName" AS player2,
+                    t2."{label}" AS score2,
+                    t1."{label}" + t2."{label}" AS "Total{label}"
+                FROM top_scorers t1
+                JOIN top_scorers t2
+                    ON t1.game_id = t2.game_id
+                    AND t1."teamName" < t2."teamName"
+            )
+            SELECT
+                ROW_NUMBER() OVER (ORDER BY d."Total{label}" DESC) AS "Rank",
+                g.datetime,
+                g."seasonStartYear"::TEXT || '-' || (g."seasonStartYear" + 1)::TEXT AS "Season",
+                d.player1 || ' vs ' || d.player2 AS "playerName",
+                d.score1::TEXT || ' - ' || d.score2::TEXT AS "Score",
+                d."Total{label}",
+                g."awayTeam" || ' @ ' || g."homeTeam" AS "MatchUp",
+                g."pointsAway"::TEXT || '-' || g."pointsHome"::TEXT AS "GameScore"
+            FROM duels d
+            JOIN games g ON d.game_id = g.game_id
+            WHERE d."Total{label}" >= {min_total}
+                {player_filter}
+            ORDER BY d."Total{label}" DESC
+            LIMIT {top_n}
+            """
 
         with get_connection() as conn:
             return pd.read_sql(query, conn)

@@ -10,9 +10,101 @@ COLORS = {
     "text_primary": "#FFFFFF",
     "text_secondary": "#B0B8C1",
     "accent_gold": "#FDB927", # Lakers Gold / Accent
-    "chart_bar": "#17408B",   # Blue bars
+    "chart_bar": "#C9082A",   # Red bars (changed from Blue)
     "chart_grid": "#233345",
 }
+
+# NBAチームカラー（略称→カラーコード）
+TEAM_COLORS = {
+    "ATL": "#C8102E",  # Hawks
+    "BOS": "#007A33",  # Celtics
+    "BRK": "#000000",  # Nets
+    "BKN": "#000000",  # Nets (alternative)
+    "CHA": "#1D1160",  # Hornets
+    "CHI": "#CE1141",  # Bulls
+    "CLE": "#860038",  # Cavaliers
+    "DAL": "#00538C",  # Mavericks
+    "DEN": "#0E2240",  # Nuggets
+    "DET": "#C8102E",  # Pistons
+    "GSW": "#1D428A",  # Warriors
+    "HOU": "#CE1141",  # Rockets
+    "IND": "#002D62",  # Pacers
+    "LAC": "#C8102E",  # Clippers
+    "LAL": "#552583",  # Lakers
+    "MEM": "#5D76A9",  # Grizzlies
+    "MIA": "#98002E",  # Heat
+    "MIL": "#00471B",  # Bucks
+    "MIN": "#0C2340",  # Timberwolves
+    "NOP": "#0C2340",  # Pelicans
+    "NYK": "#006BB6",  # Knicks
+    "OKC": "#007AC1",  # Thunder
+    "ORL": "#0077C0",  # Magic
+    "PHI": "#006BB6",  # 76ers
+    "PHO": "#1D1160",  # Suns
+    "PHX": "#1D1160",  # Suns (alternative)
+    "POR": "#E03A3E",  # Trail Blazers
+    "SAC": "#5A2D81",  # Kings
+    "SAS": "#C4CED4",  # Spurs
+    "TOR": "#CE1141",  # Raptors
+    "UTA": "#002B5C",  # Jazz
+    "WAS": "#002B5C",  # Wizards
+}
+
+# チーム名→略称のマッピング（部分一致用）
+TEAM_NAME_TO_ABBR = {
+    "hawks": "ATL",
+    "celtics": "BOS",
+    "nets": "BKN",
+    "hornets": "CHA",
+    "bulls": "CHI",
+    "cavaliers": "CLE",
+    "mavericks": "DAL",
+    "nuggets": "DEN",
+    "pistons": "DET",
+    "warriors": "GSW",
+    "rockets": "HOU",
+    "pacers": "IND",
+    "clippers": "LAC",
+    "lakers": "LAL",
+    "grizzlies": "MEM",
+    "heat": "MIA",
+    "bucks": "MIL",
+    "timberwolves": "MIN",
+    "pelicans": "NOP",
+    "knicks": "NYK",
+    "thunder": "OKC",
+    "magic": "ORL",
+    "76ers": "PHI",
+    "sixers": "PHI",
+    "suns": "PHX",
+    "blazers": "POR",
+    "trail blazers": "POR",
+    "kings": "SAC",
+    "spurs": "SAS",
+    "raptors": "TOR",
+    "jazz": "UTA",
+    "wizards": "WAS",
+}
+
+
+def get_team_color(team_name: str) -> str:
+    """チーム名からチームカラーを取得"""
+    if not team_name:
+        return None
+
+    team_upper = team_name.upper()
+
+    # 略称で直接マッチ
+    if team_upper in TEAM_COLORS:
+        return TEAM_COLORS[team_upper]
+
+    # チーム名で部分一致
+    team_lower = team_name.lower()
+    for name, abbr in TEAM_NAME_TO_ABBR.items():
+        if name in team_lower or team_lower in name:
+            return TEAM_COLORS[abbr]
+
+    return None
 
 # Streamlit用カスタムCSS
 CUSTOM_CSS = """
