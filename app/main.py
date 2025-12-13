@@ -404,6 +404,7 @@ def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50,
         textposition="inside",
         textfont=dict(color="#FFFFFF", size=11),
         insidetextanchor="end",  # バー内の右端に配置
+        textangle=0,  # ラベルを常に水平に統一
     )
 
     # Y軸の設定

@@ -202,6 +202,30 @@ CUSTOM_CSS = """
     background-color: #2C5AA0;
 }
 
+/* フォーム送信ボタン（分析するボタン） */
+.stFormSubmitButton > button {
+    background-color: #C9082A !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 4px;
+    padding: 0.5rem 1.25rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stFormSubmitButton > button:hover {
+    background-color: #E31837 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.stFormSubmitButton > button:active,
+.stFormSubmitButton > button:focus {
+    background-color: #8B0620 !important;
+    color: white !important;
+}
+
 /* タブ */
 .stTabs [data-baseweb="tab-list"] {
     gap: 8px;
