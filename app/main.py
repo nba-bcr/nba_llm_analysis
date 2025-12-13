@@ -256,12 +256,7 @@ def init_session_state():
 def render_sidebar():
     """サイドバーを描画"""
     with st.sidebar:
-        st.markdown("## 📚 使い方")
-        st.markdown("""
-        質問を入力すると、NBAスタッツを分析して結果を表示します。
-        """)
-
-        st.markdown("### 💡 質問例")
+        st.markdown("### 💡 質問例をタップしてみてね！")
         examples = [
             "25歳時点での通算得点ランキング",
             "連続ダブルダブル記録TOP20",
@@ -279,17 +274,6 @@ def render_sidebar():
                 st.session_state.pending_query = example
                 rerun()
 
-        st.markdown("---")
-
-        st.markdown("### 📊 対応スタッツ")
-        st.code("PTS, TRB, AST, STL, BLK, 3P, Win, DD, TD")
-
-        st.markdown("### 🎮 試合タイプ")
-        st.markdown("- `regular`: レギュラーシーズン")
-        st.markdown("- `playoff`: プレイオフ")
-        st.markdown("- `final`: ファイナル")
-        st.markdown("- `all`: 全試合")
-
         # 過去の質問履歴
         recent_queries = get_recent_queries(limit=10)
         if recent_queries:
@@ -303,9 +287,9 @@ def render_sidebar():
         # フッター
         st.markdown("---")
         st.markdown(
-            "📬 ご希望の分析メニューや機能がありましたら "
-            "[nba.bcr2022@gmail.com](mailto:nba.bcr2022@gmail.com) "
-            "までお気軽にお問い合わせください！"
+            "📬 こんな分析ほしい！などあれば "
+            "[こちら](mailto:nba.bcr2022@gmail.com) "
+            "まで気軽にどうぞ〜"
         )
 
         st.markdown("---")
@@ -566,6 +550,7 @@ def main():
     # タイトル
     st.title("🏀 NBA Player Analytics")
     st.markdown("NBA選手をいろんな角度で分析できます。自然言語で好きな分析をしてみてください！")
+    st.markdown("👈 **左上のメニューから質問例が選べます！**")
     st.caption(
         "💡 LLMはClaude Haiku 4.5を使用しています。"
         "選手名が正しい日本語表記にならないことがあります。"
