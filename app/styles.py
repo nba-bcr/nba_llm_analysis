@@ -182,6 +182,13 @@ CUSTOM_CSS = """
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
 }
 
+.stButton > button:active,
+.stButton > button:focus {
+    background-color: #8B0620 !important;
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
+}
+
 /* ダウンロードボタン */
 .stDownloadButton > button {
     background-color: #17408B;
