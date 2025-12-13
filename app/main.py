@@ -240,7 +240,7 @@ st.set_page_config(
     page_title="NBA Player Analytics",
     page_icon="🏀",
     layout="wide",
-    initial_sidebar_state="auto",  # モバイルでは閉じる、PCでは開く
+    initial_sidebar_state="collapsed",  # 初期状態で閉じる（特にモバイル向け）
 )
 
 # カスタムCSS適用

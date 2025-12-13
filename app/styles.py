@@ -122,8 +122,14 @@ CUSTOM_CSS = """
 /* サイドバー */
 [data-testid="stSidebar"] {
     background-color: #0D1B2E;
-    min-width: 350px;
     border-right: 1px solid #1A2D45;
+}
+
+/* サイドバー - PC向け最小幅 */
+@media (min-width: 769px) {
+    [data-testid="stSidebar"] {
+        min-width: 320px;
+    }
 }
 
 [data-testid="stSidebar"] .stMarkdown {
@@ -329,17 +335,38 @@ a:hover {
    モバイル対応 (768px以下)
    ======================================== */
 @media (max-width: 768px) {
-    /* サイドバー */
+    /* サイドバー - 閉じた状態で完全に隠す */
+    [data-testid="stSidebar"][aria-expanded="false"] {
+        margin-left: -100% !important;
+        transform: translateX(-100%) !important;
+    }
+
+    /* サイドバー - モバイルで開いた時 */
     [data-testid="stSidebar"] {
-        min-width: 100% !important;
+        min-width: unset !important;
+        max-width: 80vw !important;
+        width: 80vw !important;
+    }
+
+    [data-testid="stSidebar"] > div:first-child {
+        width: 100% !important;
+        min-width: unset !important;
+    }
+
+    /* サイドバー内のコンテンツ */
+    [data-testid="stSidebarContent"] {
+        padding: 1rem 0.5rem !important;
         width: 100% !important;
     }
 
-    /* サイドバー内のボタン */
+    /* サイドバー内のボタン - コンパクトに */
     [data-testid="stSidebar"] .stButton > button {
-        font-size: 14px !important;
-        padding: 0.75rem 0.5rem !important;
-        min-height: 48px !important; /* タップしやすいサイズ */
+        font-size: 12px !important;
+        padding: 0.5rem 0.3rem !important;
+        min-height: 40px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 
     /* チャット入力 - iOS zoom防止 */
