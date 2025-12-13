@@ -82,24 +82,27 @@ def show_loading_video(use_expander: bool = True) -> Optional[dict]:
     if video and video.get("url"):
         embed_url = get_youtube_embed_url(video["url"])
 
+        # レスポンシブなYouTube埋め込み（16:9アスペクト比を維持）
+        responsive_iframe = f'''
+        <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%;">
+            <iframe
+                src="{embed_url}"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen>
+            </iframe>
+        </div>
+        '''
+
         if use_expander:
             # トグルで開閉可能なexpander
             with st.expander(f"🎬 {video['title']}（クリックで開閉）", expanded=True):
-                st.markdown(
-                    f'<iframe width="100%" height="400" src="{embed_url}" '
-                    f'frameborder="0" allow="accelerometer; autoplay; clipboard-write; '
-                    f'encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>',
-                    unsafe_allow_html=True
-                )
+                st.markdown(responsive_iframe, unsafe_allow_html=True)
         else:
             # 従来通りの表示
             st.markdown(f"**🎬 {video['title']}**")
-            st.markdown(
-                f'<iframe width="100%" height="400" src="{embed_url}" '
-                f'frameborder="0" allow="accelerometer; autoplay; clipboard-write; '
-                f'encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>',
-                unsafe_allow_html=True
-            )
+            st.markdown(responsive_iframe, unsafe_allow_html=True)
         return video
     return None
 
@@ -237,7 +240,7 @@ st.set_page_config(
     page_title="NBA Player Analytics",
     page_icon="🏀",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",  # モバイルでは閉じる、PCでは開く
 )
 
 # カスタムCSS適用

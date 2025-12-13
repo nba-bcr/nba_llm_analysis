@@ -324,6 +324,120 @@ a:hover {
     text-decoration: underline;
     color: #82B6FF !important;
 }
+
+/* ========================================
+   モバイル対応 (768px以下)
+   ======================================== */
+@media (max-width: 768px) {
+    /* サイドバー */
+    [data-testid="stSidebar"] {
+        min-width: 100% !important;
+        width: 100% !important;
+    }
+
+    /* サイドバー内のボタン */
+    [data-testid="stSidebar"] .stButton > button {
+        font-size: 14px !important;
+        padding: 0.75rem 0.5rem !important;
+        min-height: 48px !important; /* タップしやすいサイズ */
+    }
+
+    /* チャット入力 - iOS zoom防止 */
+    .stChatInput input,
+    .stChatInput textarea {
+        font-size: 16px !important;
+    }
+
+    /* メインコンテンツの余白調整 */
+    .main .block-container {
+        padding: 1rem 0.5rem !important;
+    }
+
+    /* タイトル */
+    h1 {
+        font-size: 1.5rem !important;
+        text-shadow: 1px 1px 0px #17408B !important;
+    }
+
+    h2, h3 {
+        font-size: 1.1rem !important;
+        padding-left: 8px !important;
+        border-left-width: 3px !important;
+    }
+
+    /* ボタン - タップしやすいサイズ */
+    .stButton > button {
+        min-height: 48px !important;
+        padding: 0.75rem 1rem !important;
+        font-size: 14px !important;
+    }
+
+    /* ダウンロードボタン */
+    .stDownloadButton > button {
+        min-height: 48px !important;
+        width: 100% !important;
+    }
+
+    /* タブ */
+    .stTabs [data-baseweb="tab"] {
+        padding: 12px 8px !important;
+        font-size: 14px !important;
+    }
+
+    /* チャットメッセージ */
+    [data-testid="stChatMessage"] {
+        padding: 0.75rem !important;
+    }
+
+    /* データフレーム - 横スクロール */
+    .stDataFrame {
+        overflow-x: auto !important;
+    }
+
+    /* Plotlyグラフ */
+    .js-plotly-plot {
+        width: 100% !important;
+    }
+
+    /* エクスパンダー（YouTube等） */
+    .streamlit-expanderHeader {
+        font-size: 14px !important;
+        padding: 12px !important;
+    }
+
+    /* 通常テキスト */
+    p, span, label, li {
+        font-size: 14px !important;
+    }
+
+    /* コード */
+    code {
+        font-size: 12px !important;
+        word-break: break-all !important;
+    }
+}
+
+/* ========================================
+   小さいスマホ対応 (480px以下)
+   ======================================== */
+@media (max-width: 480px) {
+    h1 {
+        font-size: 1.25rem !important;
+    }
+
+    h2, h3 {
+        font-size: 1rem !important;
+    }
+
+    .stButton > button {
+        font-size: 13px !important;
+    }
+
+    /* 質問例ボタンを縦に並べる */
+    [data-testid="stSidebar"] .stButton {
+        margin-bottom: 4px !important;
+    }
+}
 </style>
 """
 
