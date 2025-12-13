@@ -396,7 +396,7 @@ def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50,
         showlegend=False,
         xaxis_title="",  # X軸タイトルを削除（スペース節約）
         yaxis_title="",
-        margin=dict(l=10, r=50, t=20, b=20),  # 左余白最小（automarginで自動調整）
+        margin=dict(l=140, r=50, t=20, b=20),  # 左余白を広めに確保
     )
 
     # ラベルのスタイル設定（バー内側に表示）
@@ -406,10 +406,11 @@ def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50,
         insidetextanchor="end",  # バー内の右端に配置
     )
 
-    # Y軸の設定（automarginでラベルが収まるよう自動調整）
+    # Y軸の設定
     fig.update_yaxes(
         tickfont=dict(size=11, color="#FFFFFF"),
-        automargin=True,  # ラベルが収まるよう自動的に余白を調整
+        ticklabelposition="outside",  # ラベルをプロット領域の外側に
+        automargin=True,  # 長い名前があれば追加調整
     )
 
     return fig
