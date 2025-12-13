@@ -300,6 +300,17 @@ def render_sidebar():
         )
 
 
+def shorten_player_name(name: str) -> str:
+    """選手名を短縮形式に変換（モバイル向け）
+    例: "LeBron James" → "L. James"
+    """
+    parts = name.split()
+    if len(parts) >= 2:
+        # ファーストネームをイニシャルに
+        return f"{parts[0][0]}. {' '.join(parts[1:])}"
+    return name
+
+
 def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50, highlight_query: str = "", team: str = None) -> go.Figure:
     """横棒グラフを作成（スクロール対応、選手ハイライト機能付き）"""
     # 表示件数を制限
@@ -326,10 +337,10 @@ def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50,
 
     plot_df["_highlight"] = plot_df["playerName"].apply(should_highlight)
 
-    # ランキング番号を追加（1位から順に）
+    # ランキング番号を追加（1位から順に）- 選手名を短縮
     plot_df = plot_df.reset_index(drop=True)
     plot_df["_display_name"] = plot_df.apply(
-        lambda row: f"{row.name + 1}. {row['playerName']}", axis=1
+        lambda row: f"{row.name + 1}. {shorten_player_name(row['playerName'])}", axis=1
     )
 
     # 逆順にする（1位が上に来るように）
@@ -350,8 +361,8 @@ def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50,
     # 色を適用
     fig.update_traces(marker_color=colors)
 
-    # バーの高さを固定（1バーあたり30px）
-    chart_height = max(600, n_bars * 30)
+    # バーの高さを固定（1バーあたり28px - モバイル向けにコンパクト化）
+    chart_height = max(500, n_bars * 28)
 
     # テーマ適用
     theme = get_plotly_theme()
@@ -359,19 +370,19 @@ def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50,
         **theme,
         height=chart_height,
         showlegend=False,
-        xaxis_title=value_col,
+        xaxis_title="",  # X軸タイトルを削除（スペース節約）
         yaxis_title="",
-        margin=dict(l=10, r=10, t=40, b=10),
+        margin=dict(l=100, r=40, t=20, b=20),  # 左余白を増やして選手名表示
     )
 
-    # ラベルのスタイル設定
+    # ラベルのスタイル設定（モバイル向けに小さく）
     fig.update_traces(
         textposition="outside",
-        textfont=dict(color="#FFFFFF", size=14),
+        textfont=dict(color="#FFFFFF", size=11),
     )
 
-    # Y軸（選手名）のフォントサイズ（白色）
-    fig.update_yaxes(tickfont=dict(size=14, color="#FFFFFF"))
+    # Y軸（選手名）のフォントサイズ（モバイル向けに小さく）
+    fig.update_yaxes(tickfont=dict(size=11, color="#FFFFFF"))
 
     return fig
 
