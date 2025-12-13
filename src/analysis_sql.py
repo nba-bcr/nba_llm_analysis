@@ -598,17 +598,16 @@ class NBAAnalyzerSQL:
 
         query = f"""
         SELECT
-            TO_CHAR(g.datetime, 'YYYY-MM-DD') || ' ' ||
-            CASE
-                WHEN b."teamName" = g."homeTeam" THEN 'vs ' || g."awayTeam"
-                ELSE '@ ' || g."homeTeam"
-            END AS "playerName",
             TO_CHAR(g.datetime, 'YYYY-MM-DD') AS "Date",
             g."seasonStartYear"::TEXT || '-' || (g."seasonStartYear" + 1)::TEXT AS "Season",
             CASE
-                WHEN b."teamName" = g."homeTeam" THEN 'vs ' || g."awayTeam"
-                ELSE '@ ' || g."homeTeam"
-            END AS "Opponent",
+                WHEN b."teamName" = g."homeTeam" THEN g."awayTeam"
+                ELSE g."homeTeam"
+            END AS "_opponent_full",
+            CASE
+                WHEN b."teamName" = g."homeTeam" THEN 'vs'
+                ELSE '@'
+            END AS "_location",
             b."{label}" AS "{label}",
             b."PTS",
             b."TRB",
@@ -623,7 +622,43 @@ class NBAAnalyzerSQL:
         """
 
         with get_connection() as conn:
-            return pd.read_sql(query, conn)
+            df = pd.read_sql(query, conn)
+
+        # チーム名を略称に変換
+        df["Opponent"] = df.apply(
+            lambda row: f"{row['_location']} {self._get_team_abbr(row['_opponent_full'])}", axis=1
+        )
+        # playerName列を作成（日付 + 対戦相手）
+        df["playerName"] = df["Date"] + " " + df["Opponent"]
+        # 不要な列を削除
+        df = df.drop(columns=["_opponent_full", "_location"])
+        # 列を並び替え
+        cols = ["playerName", "Date", "Season", "Opponent", label, "PTS", "TRB", "AST"]
+        df = df[[c for c in cols if c in df.columns]]
+
+        return df
+
+    def _get_team_abbr(self, team_name: str) -> str:
+        """チーム名から3文字略称を取得"""
+        # チーム名→略称マッピング
+        team_abbr_map = {
+            "Atlanta Hawks": "ATL", "Boston Celtics": "BOS", "Brooklyn Nets": "BKN",
+            "Charlotte Hornets": "CHA", "Charlotte Bobcats": "CHA", "Chicago Bulls": "CHI",
+            "Cleveland Cavaliers": "CLE", "Dallas Mavericks": "DAL", "Denver Nuggets": "DEN",
+            "Detroit Pistons": "DET", "Golden State Warriors": "GSW", "Houston Rockets": "HOU",
+            "Indiana Pacers": "IND", "Los Angeles Clippers": "LAC", "LA Clippers": "LAC",
+            "Los Angeles Lakers": "LAL", "Memphis Grizzlies": "MEM", "Miami Heat": "MIA",
+            "Milwaukee Bucks": "MIL", "Minnesota Timberwolves": "MIN", "New Orleans Pelicans": "NOP",
+            "New Orleans Hornets": "NOP", "New York Knicks": "NYK", "Oklahoma City Thunder": "OKC",
+            "Orlando Magic": "ORL", "Philadelphia 76ers": "PHI", "Phoenix Suns": "PHX",
+            "Portland Trail Blazers": "POR", "Sacramento Kings": "SAC", "San Antonio Spurs": "SAS",
+            "Toronto Raptors": "TOR", "Utah Jazz": "UTA", "Washington Wizards": "WAS",
+            # 旧チーム名
+            "Seattle SuperSonics": "SEA", "New Jersey Nets": "NJN", "Vancouver Grizzlies": "VAN",
+            "Washington Bullets": "WAS", "San Diego Clippers": "SDC", "Kansas City Kings": "KCK",
+            "Buffalo Braves": "BUF", "New Orleans Jazz": "NOJ", "San Diego Rockets": "SDR",
+        }
+        return team_abbr_map.get(team_name, team_name[:3].upper())
 
     # =========================================================================
     # 8. 条件付き達成回数分析
