@@ -311,6 +311,30 @@ def shorten_player_name(name: str) -> str:
     return name
 
 
+def clean_dataframe_for_display(df, func_name: str = "") -> "pd.DataFrame":
+    """テーブル表示用にDataFrameを整理（不要なカラムを削除）"""
+    display_df = df.copy()
+
+    # 常に削除するカラム（内部用）
+    cols_to_drop = []
+    for col in display_df.columns:
+        # アンダースコアで始まるカラムは内部用
+        if col.startswith("_"):
+            cols_to_drop.append(col)
+        # player_imageは表示不要
+        elif col == "player_image":
+            cols_to_drop.append(col)
+
+    # キャリアハイ分析の場合、playerNameは冗長（1選手の記録のため）
+    if func_name == "get_player_career_high" and "playerName" in display_df.columns:
+        cols_to_drop.append("playerName")
+
+    # カラムを削除
+    display_df = display_df.drop(columns=[c for c in cols_to_drop if c in display_df.columns])
+
+    return display_df
+
+
 def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50, highlight_query: str = "", team: str = None) -> go.Figure:
     """横棒グラフを作成（スクロール対応、選手ハイライト機能付き）"""
     # 表示件数を制限
@@ -372,17 +396,21 @@ def create_bar_chart(df, value_col: str, title: str = "", max_display: int = 50,
         showlegend=False,
         xaxis_title="",  # X軸タイトルを削除（スペース節約）
         yaxis_title="",
-        margin=dict(l=100, r=40, t=20, b=20),  # 左余白を増やして選手名表示
+        margin=dict(l=10, r=50, t=20, b=20),  # 左余白最小（automarginで自動調整）
     )
 
-    # ラベルのスタイル設定（モバイル向けに小さく）
+    # ラベルのスタイル設定（バー内側に表示）
     fig.update_traces(
-        textposition="outside",
+        textposition="inside",
         textfont=dict(color="#FFFFFF", size=11),
+        insidetextanchor="end",  # バー内の右端に配置
     )
 
-    # Y軸（選手名）のフォントサイズ（モバイル向けに小さく）
-    fig.update_yaxes(tickfont=dict(size=11, color="#FFFFFF"))
+    # Y軸の設定（automarginでラベルが収まるよう自動調整）
+    fig.update_yaxes(
+        tickfont=dict(size=11, color="#FFFFFF"),
+        automargin=True,  # ラベルが収まるよう自動的に余白を調整
+    )
 
     return fig
 
@@ -397,9 +425,7 @@ def render_result(result_df, parsed: dict, msg_idx: int, comment: str = "", quer
     # デュエル分析はテーブルのみ表示
     if func_name == "get_duel_ranking":
         st.markdown(f"**{parsed.get('description', '')}**")
-        display_df = result_df.copy()
-        if "player_image" in display_df.columns:
-            display_df = display_df.drop(columns=["player_image"])
+        display_df = clean_dataframe_for_display(result_df, func_name)
         st.dataframe(display_df, use_container_width=True, height=500)
     else:
         # タブで表示切り替え
@@ -423,10 +449,8 @@ def render_result(result_df, parsed: dict, msg_idx: int, comment: str = "", quer
                 st.dataframe(result_df.head(20), use_container_width=True)
 
         with tab_table:
-            # 表示用に列を整理
-            display_df = result_df.copy()
-            if "player_image" in display_df.columns:
-                display_df = display_df.drop(columns=["player_image"])
+            # 表示用に列を整理（不要カラム削除）
+            display_df = clean_dataframe_for_display(result_df, func_name)
             st.dataframe(display_df, use_container_width=True, height=400)
 
     # 考察コメント表示
