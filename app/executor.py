@@ -13,7 +13,8 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data_loader import NBADataLoader
-from src.analysis import NBAAnalyzer, PlayDataAnalyzer
+from src.analysis import NBAAnalyzer
+from src.play_data_analyzer import PlayDataAnalyzer
 from src.utils import merge_player_image
 
 

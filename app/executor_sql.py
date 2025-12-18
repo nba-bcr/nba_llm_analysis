@@ -12,7 +12,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.analysis_sql import NBAAnalyzerSQL
-from src.analysis import PlayDataAnalyzer
+from src.play_data_analyzer import PlayDataAnalyzer
 from src.db_connection import get_connection
 
 
