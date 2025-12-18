@@ -13,7 +13,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data_loader import NBADataLoader
-from src.analysis import NBAAnalyzer
+from src.analysis import NBAAnalyzer, PlayDataAnalyzer
 from src.utils import merge_player_image
 
 
@@ -42,6 +42,20 @@ AVAILABLE_FUNCTIONS = {
     "get_season_achievement_count",
     "get_duel_ranking",
     "get_filtered_achievement_count",
+    "get_teammate_ranking",
+    # PlayDataAnalyzer用の関数
+    "get_assisted_by_ranking",
+    "get_assisted_to_ranking",
+    "get_steal_by_ranking",
+    "get_block_by_ranking",
+}
+
+# PlayDataAnalyzer用の関数セット
+PLAY_DATA_FUNCTIONS = {
+    "get_assisted_by_ranking",
+    "get_assisted_to_ranking",
+    "get_steal_by_ranking",
+    "get_block_by_ranking",
 }
 
 
@@ -109,19 +123,28 @@ def execute_analysis(parsed: dict) -> tuple[Optional[pd.DataFrame], str]:
         return None, f"「{func_name}」は対応していない分析タイプです"
 
     try:
-        # データとアナライザーを取得（キャッシュ済み）
-        df, analyzer, games_df = load_data()
-
         # パラメータのクリーンアップ
         params = _clean_params(func_name, params)
 
-        # デュエル分析の場合はgames_dfを渡す
-        if func_name == "get_duel_ranking":
-            params["games_df"] = games_df
+        # PlayDataAnalyzer用の関数かどうかで分岐
+        if func_name in PLAY_DATA_FUNCTIONS:
+            # PlayDataAnalyzerを使用
+            data_dir = get_data_dir()
+            play_data_path = f"{data_dir}/play_data_1996-2025.csv"
+            play_analyzer = PlayDataAnalyzer(play_data_path)
+            method = getattr(play_analyzer, func_name)
+            result = method(**params)
+        else:
+            # NBAAnalyzerを使用
+            df, analyzer, games_df = load_data()
 
-        # 関数を取得して実行
-        method = getattr(analyzer, func_name)
-        result = method(**params)
+            # デュエル分析の場合はgames_dfを渡す
+            if func_name == "get_duel_ranking":
+                params["games_df"] = games_df
+
+            # 関数を取得して実行
+            method = getattr(analyzer, func_name)
+            result = method(**params)
 
         # 結果が空の場合
         if result is None or len(result) == 0:
@@ -172,6 +195,22 @@ def _clean_params(func_name: str, params: dict) -> dict:
         "get_filtered_achievement_count": {
             "count_column", "count_threshold", "filter_column", "filter_op",
             "filter_value", "game_type", "league", "top_n"
+        },
+        "get_teammate_ranking": {
+            "player_name", "label", "aggfunc", "min_games", "game_type", "league", "top_n"
+        },
+        # PlayDataAnalyzer用
+        "get_assisted_by_ranking": {
+            "player_name", "top_n"
+        },
+        "get_assisted_to_ranking": {
+            "player_name", "top_n"
+        },
+        "get_steal_by_ranking": {
+            "player_name", "top_n"
+        },
+        "get_block_by_ranking": {
+            "player_name", "top_n"
         },
     }
 

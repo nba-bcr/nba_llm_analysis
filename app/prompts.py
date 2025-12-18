@@ -64,6 +64,38 @@ SYSTEM_PROMPT = """あなたはNBAスタッツ分析アシスタントです。
     thresholds形式: {"PTS": 25, "TRB": 5, "AST": 5}
     対応スタッツ: PTS, TRB, AST, STL, BLK, 3P
 
+12. get_teammate_ranking - チームメイト（相棒）ランキング
+    params: player_name(str), label(str), aggfunc(str), min_games(int), game_type(str), top_n(int)
+    用途: 特定選手と一緒に出場した選手のスタッツランキング
+    例: コービーの相棒ランキング（得点）、レブロンと一緒に勝った選手
+    ※player_nameは英語名で指定（日本語名の場合は変換が必要）
+    ※aggfunc: sum（合計）or mean（平均）
+    ※min_games: 最低共演試合数（デフォルト50）
+
+13. get_assisted_by_ranking - 〇〇がアシストした選手ランキング
+    params: player_name(str), top_n(int)
+    用途: 特定選手がアシストした選手のランキング（プレイバイプレイデータ使用）
+    例: ステフカリーがアシストした選手、レブロンがアシストした選手TOP10
+    ※1996年以降のデータのみ
+
+14. get_assisted_to_ranking - 〇〇にアシストした選手ランキング
+    params: player_name(str), top_n(int)
+    用途: 特定選手にアシストした選手のランキング
+    例: デュラントにアシストした選手、コービーにアシストした選手
+    ※1996年以降のデータのみ
+
+15. get_steal_by_ranking - 〇〇がスティールした相手ランキング
+    params: player_name(str), top_n(int)
+    用途: 特定選手がスティールした相手（ターンオーバーを奪った相手）のランキング
+    例: ジョーダンがスティールした選手、クリスポールがスティールした選手
+    ※1996年以降のデータのみ
+
+16. get_block_by_ranking - 〇〇がブロックした相手ランキング
+    params: player_name(str), top_n(int)
+    用途: 特定選手がブロックした相手のランキング
+    例: ハキームがブロックした選手、ADがブロックした選手
+    ※1996年以降のデータのみ
+
 ## is_starter パラメータ（get_ranking_by_age対応）
 - is_starter=true: スターター時のみ
 - is_starter=false: ベンチ時のみ
@@ -226,6 +258,58 @@ FEW_SHOT_EXAMPLES = [
     {
         "user": "INDでの連勝記録",
         "assistant": '{"function": "get_consecutive_games", "params": {"label": "Win", "game_type": "regular", "top_n": 50, "team": "Pacers"}, "description": "ペイサーズ所属時の連勝記録ランキングを取得します"}'
+    },
+    {
+        "user": "コービーの相棒ランキング",
+        "assistant": '{"function": "get_teammate_ranking", "params": {"player_name": "Kobe Bryant", "label": "PTS", "aggfunc": "sum", "min_games": 50, "game_type": "regular", "top_n": 30}, "description": "Kobe Bryantと一緒に出場した選手の通算得点ランキングを取得します"}'
+    },
+    {
+        "user": "レブロンのチームメイトでアシストが多い選手",
+        "assistant": '{"function": "get_teammate_ranking", "params": {"player_name": "LeBron James", "label": "AST", "aggfunc": "sum", "min_games": 50, "game_type": "regular", "top_n": 30}, "description": "LeBron Jamesと一緒に出場した選手の通算アシストランキングを取得します"}'
+    },
+    {
+        "user": "マイケルジョーダンと一緒に勝った選手",
+        "assistant": '{"function": "get_teammate_ranking", "params": {"player_name": "Michael Jordan", "label": "Win", "aggfunc": "sum", "min_games": 50, "game_type": "regular", "top_n": 30}, "description": "Michael Jordanと一緒に出場した選手の勝利数ランキングを取得します"}'
+    },
+    {
+        "user": "ステフィンカリーの相棒リバウンドランキング",
+        "assistant": '{"function": "get_teammate_ranking", "params": {"player_name": "Stephen Curry", "label": "TRB", "aggfunc": "sum", "min_games": 50, "game_type": "regular", "top_n": 30}, "description": "Stephen Curryと一緒に出場した選手の通算リバウンドランキングを取得します"}'
+    },
+    {
+        "user": "シャックの相棒平均得点ランキング",
+        "assistant": '{"function": "get_teammate_ranking", "params": {"player_name": "Shaquille O\'Neal", "label": "PTS", "aggfunc": "mean", "min_games": 50, "game_type": "regular", "top_n": 30}, "description": "Shaquille O\'Nealと一緒に出場した選手の平均得点ランキングを取得します"}'
+    },
+    {
+        "user": "ステフカリーがアシストした選手",
+        "assistant": '{"function": "get_assisted_by_ranking", "params": {"player_name": "Stephen Curry", "top_n": 10}, "description": "Stephen Curryがアシストした選手のランキングを取得します"}'
+    },
+    {
+        "user": "レブロンがアシストした選手TOP10",
+        "assistant": '{"function": "get_assisted_by_ranking", "params": {"player_name": "LeBron James", "top_n": 10}, "description": "LeBron Jamesがアシストした選手のランキングを取得します"}'
+    },
+    {
+        "user": "デュラントにアシストした選手",
+        "assistant": '{"function": "get_assisted_to_ranking", "params": {"player_name": "Kevin Durant", "top_n": 10}, "description": "Kevin Durantにアシストした選手のランキングを取得します"}'
+    },
+    {
+        "user": "コービーにアシストした選手ランキング",
+        "assistant": '{"function": "get_assisted_to_ranking", "params": {"player_name": "Kobe Bryant", "top_n": 10}, "description": "Kobe Bryantにアシストした選手のランキングを取得します"}'
+    },
+    {
+        "user": "クリスポールがスティールした選手",
+        "assistant": '{"function": "get_steal_by_ranking", "params": {"player_name": "Chris Paul", "top_n": 10}, "description": "Chris Paulがスティールした相手のランキングを取得します"}'
+    },
+    {
+        "user": "ジョーダンがスティールした選手TOP10",
+        "assistant": '{"function": "get_steal_by_ranking", "params": {"player_name": "Michael Jordan", "top_n": 10}, "description": "Michael Jordanがスティールした相手のランキングを取得します"}'
+    },
+    {
+        "user": "アンソニーデイビスがブロックした選手",
+        "assistant": '{"function": "get_block_by_ranking", "params": {"player_name": "Anthony Davis", "top_n": 10}, "description": "Anthony Davisがブロックした相手のランキングを取得します"}'
+    },
+    {
+        "user": "レブロンがブロックした選手",
+        "assistant": '{"function": "get_block_by_ranking", "params": {"player_name": "LeBron James", "top_n": 10}, "description": "LeBron Jamesがブロックした相手のランキングを取得します"}'
     },
 ]
 

@@ -12,7 +12,16 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.analysis_sql import NBAAnalyzerSQL
+from src.analysis import PlayDataAnalyzer
 from src.db_connection import get_connection
+
+
+def get_data_dir() -> str:
+    """データディレクトリを取得"""
+    import os
+    if os.environ.get("DATA_DIR"):
+        return os.environ["DATA_DIR"]
+    return "data"
 
 
 # 利用可能な関数のマッピング
@@ -28,6 +37,19 @@ AVAILABLE_FUNCTIONS = {
     "get_player_starter_comparison",
     "get_bench_player_ranking",
     "get_combined_achievement_count",
+    # PlayDataAnalyzer用の関数
+    "get_assisted_by_ranking",
+    "get_assisted_to_ranking",
+    "get_steal_by_ranking",
+    "get_block_by_ranking",
+}
+
+# PlayDataAnalyzer用の関数セット
+PLAY_DATA_FUNCTIONS = {
+    "get_assisted_by_ranking",
+    "get_assisted_to_ranking",
+    "get_steal_by_ranking",
+    "get_block_by_ranking",
 }
 
 
@@ -94,15 +116,22 @@ def execute_analysis(parsed: dict):
         return None, f"「{func_name}」は対応していない分析タイプです"
 
     try:
-        # アナライザーを取得（キャッシュ済み）
-        analyzer = get_analyzer()
-
         # パラメータのクリーンアップ
         params = _clean_params(func_name, params)
 
-        # 関数を取得して実行
-        method = getattr(analyzer, func_name)
-        result = method(**params)
+        # PlayDataAnalyzer用の関数かどうかで分岐
+        if func_name in PLAY_DATA_FUNCTIONS:
+            # PlayDataAnalyzerを使用
+            data_dir = get_data_dir()
+            play_data_path = f"{data_dir}/play_data_1996-2025.csv"
+            play_analyzer = PlayDataAnalyzer(play_data_path)
+            method = getattr(play_analyzer, func_name)
+            result = method(**params)
+        else:
+            # NBAAnalyzerSQLを使用（キャッシュ済み）
+            analyzer = get_analyzer()
+            method = getattr(analyzer, func_name)
+            result = method(**params)
 
         # 結果が空の場合
         if result is None or len(result) == 0:
@@ -163,6 +192,19 @@ def _clean_params(func_name: str, params: dict) -> dict:
         "get_combined_achievement_count": {
             "thresholds", "game_type", "league", "top_n"
         },
+        # PlayDataAnalyzer用
+        "get_assisted_by_ranking": {
+            "player_name", "top_n"
+        },
+        "get_assisted_to_ranking": {
+            "player_name", "top_n"
+        },
+        "get_steal_by_ranking": {
+            "player_name", "top_n"
+        },
+        "get_block_by_ranking": {
+            "player_name", "top_n"
+        },
     }
 
     allowed = allowed_params.get(func_name, set())
@@ -208,7 +250,8 @@ def _clean_params(func_name: str, params: dict) -> dict:
     if "top_n" not in cleaned:
         cleaned["top_n"] = 10  # デフォルトはTOP10
 
-    if "game_type" not in cleaned:
+    # PlayDataAnalyzer関数以外はgame_typeを設定
+    if func_name not in PLAY_DATA_FUNCTIONS and "game_type" not in cleaned:
         cleaned["game_type"] = "regular"
 
     # aggfuncのデフォルトは"sum"（回数をカウントする場合が多いため）

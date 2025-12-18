@@ -268,6 +268,8 @@ def render_sidebar():
             "コービー対アイバーソンの直接対決",
             "八村塁のキャリアハイ3P",
             "LALの通算得点ランキング",
+            "コービーの相棒ランキング",
+            "カリーがアシストした選手TOP10",
         ]
         for example in examples:
             if st.button(example, key=f"example_{example}", use_container_width=True):
