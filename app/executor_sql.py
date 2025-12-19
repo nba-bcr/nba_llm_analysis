@@ -121,10 +121,8 @@ def execute_analysis(parsed: dict):
 
         # PlayDataAnalyzer用の関数かどうかで分岐
         if func_name in PLAY_DATA_FUNCTIONS:
-            # PlayDataAnalyzerを使用
-            data_dir = get_data_dir()
-            play_data_path = f"{data_dir}/play_data_1996-2025.csv"
-            play_analyzer = PlayDataAnalyzer(play_data_path)
+            # PlayDataAnalyzerを使用（CockroachDBから取得）
+            play_analyzer = PlayDataAnalyzer()
             method = getattr(play_analyzer, func_name)
             result = method(**params)
         else:

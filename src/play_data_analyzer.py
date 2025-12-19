@@ -1,18 +1,14 @@
 """プレイバイプレイデータ分析モジュール"""
 
-import os
 import re
 from collections import Counter
 import pandas as pd
 
-
-def _is_cloud_environment() -> bool:
-    """クラウド環境（Streamlit Cloud）かどうかを判定"""
-    return os.environ.get("DATABASE_URL") is not None
+from src.db_connection import get_database_url
 
 
 class PlayDataAnalyzer:
-    """プレイバイプレイデータの分析を行うクラス"""
+    """プレイバイプレイデータの分析を行うクラス（CockroachDB使用）"""
 
     PLAYER_ABBREVIATIONS = {
         "S. Curry": "Stephen Curry",
@@ -60,21 +56,12 @@ class PlayDataAnalyzer:
     }
 
     def __init__(self, play_data_path: str = None):
+        """初期化（play_data_pathは互換性のため残すが未使用）"""
         self.play_data_path = play_data_path
-        self._df = None
-        self._use_db = _is_cloud_environment()
 
     def _get_db_connection(self):
         import psycopg2
-        return psycopg2.connect(os.environ.get("DATABASE_URL"))
-
-    def _load_data(self):
-        if self._df is None:
-            self._df = pd.read_csv(
-                self.play_data_path,
-                usecols=['event_away', 'event_home', 'game_id']
-            )
-        return self._df
+        return psycopg2.connect(get_database_url())
 
     def _get_player_pattern(self, player_name: str) -> str:
         for abbr, full in self.PLAYER_ABBREVIATIONS.items():
@@ -93,21 +80,14 @@ class PlayDataAnalyzer:
         pattern_name = self._get_player_pattern(player_name)
         assist_pattern = f'(assist by {pattern_name})'
 
-        if self._use_db:
-            conn = self._get_db_connection()
-            query = f"""
-                SELECT event_away, event_home FROM play_data
-                WHERE event_away LIKE '%{assist_pattern}%'
-                   OR event_home LIKE '%{assist_pattern}%'
-            """
-            df = pd.read_sql(query, conn)
-            conn.close()
-        else:
-            df = self._load_data()
-            regex_pattern = rf'\(assist by {re.escape(pattern_name)}\)'
-            mask = (df['event_away'].str.contains(regex_pattern, na=False, regex=True) |
-                    df['event_home'].str.contains(regex_pattern, na=False, regex=True))
-            df = df[mask]
+        conn = self._get_db_connection()
+        query = f"""
+            SELECT event_away, event_home FROM play_data
+            WHERE event_away LIKE '%{assist_pattern}%'
+               OR event_home LIKE '%{assist_pattern}%'
+        """
+        df = pd.read_sql(query, conn)
+        conn.close()
 
         shooters = []
         for _, row in df.iterrows():
@@ -127,21 +107,14 @@ class PlayDataAnalyzer:
         """特定選手にアシストした選手のランキングを取得"""
         pattern_name = self._get_player_pattern(player_name)
 
-        if self._use_db:
-            conn = self._get_db_connection()
-            query = f"""
-                SELECT event_away, event_home FROM play_data
-                WHERE event_away LIKE '{pattern_name} makes %(assist by %'
-                   OR event_home LIKE '{pattern_name} makes %(assist by %'
-            """
-            df = pd.read_sql(query, conn)
-            conn.close()
-        else:
-            df = self._load_data()
-            regex_pattern = rf'^{re.escape(pattern_name)} makes .+\(assist by'
-            mask = (df['event_away'].str.contains(regex_pattern, na=False, regex=True) |
-                    df['event_home'].str.contains(regex_pattern, na=False, regex=True))
-            df = df[mask]
+        conn = self._get_db_connection()
+        query = f"""
+            SELECT event_away, event_home FROM play_data
+            WHERE event_away LIKE '{pattern_name} makes %(assist by %'
+               OR event_home LIKE '{pattern_name} makes %(assist by %'
+        """
+        df = pd.read_sql(query, conn)
+        conn.close()
 
         pattern = rf'^{re.escape(pattern_name)} makes .+\(assist by ([A-Z]\. [A-Za-z\'\-]+)\)'
         assisters = []
@@ -160,21 +133,14 @@ class PlayDataAnalyzer:
         pattern_name = self._get_player_pattern(player_name)
         steal_pattern = f'steal by {pattern_name})'
 
-        if self._use_db:
-            conn = self._get_db_connection()
-            query = f"""
-                SELECT event_away, event_home FROM play_data
-                WHERE event_away LIKE 'Turnover by %{steal_pattern}%'
-                   OR event_home LIKE 'Turnover by %{steal_pattern}%'
-            """
-            df = pd.read_sql(query, conn)
-            conn.close()
-        else:
-            df = self._load_data()
-            regex_pattern = rf'Turnover by .+steal by {re.escape(pattern_name)}\)'
-            mask = (df['event_away'].str.contains(regex_pattern, na=False, regex=True) |
-                    df['event_home'].str.contains(regex_pattern, na=False, regex=True))
-            df = df[mask]
+        conn = self._get_db_connection()
+        query = f"""
+            SELECT event_away, event_home FROM play_data
+            WHERE event_away LIKE 'Turnover by %{steal_pattern}%'
+               OR event_home LIKE 'Turnover by %{steal_pattern}%'
+        """
+        df = pd.read_sql(query, conn)
+        conn.close()
 
         pattern = rf'Turnover by ([A-Z]\. [A-Za-z\'\-]+) .+steal by {re.escape(pattern_name)}\)'
         victims = []
@@ -193,21 +159,14 @@ class PlayDataAnalyzer:
         pattern_name = self._get_player_pattern(player_name)
         block_pattern = f'(block by {pattern_name})'
 
-        if self._use_db:
-            conn = self._get_db_connection()
-            query = f"""
-                SELECT event_away, event_home FROM play_data
-                WHERE event_away LIKE '% misses %{block_pattern}%'
-                   OR event_home LIKE '% misses %{block_pattern}%'
-            """
-            df = pd.read_sql(query, conn)
-            conn.close()
-        else:
-            df = self._load_data()
-            regex_pattern = rf'misses .+\(block by {re.escape(pattern_name)}\)'
-            mask = (df['event_away'].str.contains(regex_pattern, na=False, regex=True) |
-                    df['event_home'].str.contains(regex_pattern, na=False, regex=True))
-            df = df[mask]
+        conn = self._get_db_connection()
+        query = f"""
+            SELECT event_away, event_home FROM play_data
+            WHERE event_away LIKE '% misses %{block_pattern}%'
+               OR event_home LIKE '% misses %{block_pattern}%'
+        """
+        df = pd.read_sql(query, conn)
+        conn.close()
 
         pattern = rf'^([A-Z]\. [A-Za-z\'\-]+) misses .+\(block by {re.escape(pattern_name)}\)'
         victims = []
