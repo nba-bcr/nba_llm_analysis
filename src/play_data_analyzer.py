@@ -69,6 +69,10 @@ class PlayDataAnalyzer:
                 return abbr
         return player_name
 
+    def _escape_sql(self, value: str) -> str:
+        """SQLのシングルクォートをエスケープ"""
+        return value.replace("'", "''")
+
     def _extract_shooter(self, event):
         if pd.isna(event):
             return None
@@ -79,12 +83,13 @@ class PlayDataAnalyzer:
         """特定選手がアシストした選手のランキングを取得"""
         pattern_name = self._get_player_pattern(player_name)
         assist_pattern = f'(assist by {pattern_name})'
+        sql_pattern = self._escape_sql(assist_pattern)
 
         conn = self._get_db_connection()
         query = f"""
             SELECT event_away, event_home FROM play_data
-            WHERE event_away LIKE '%{assist_pattern}%'
-               OR event_home LIKE '%{assist_pattern}%'
+            WHERE event_away LIKE '%{sql_pattern}%'
+               OR event_home LIKE '%{sql_pattern}%'
         """
         df = pd.read_sql(query, conn)
         conn.close()
@@ -106,12 +111,13 @@ class PlayDataAnalyzer:
     def get_assisted_to_ranking(self, player_name: str, top_n: int = 10) -> pd.DataFrame:
         """特定選手にアシストした選手のランキングを取得"""
         pattern_name = self._get_player_pattern(player_name)
+        sql_pattern = self._escape_sql(pattern_name)
 
         conn = self._get_db_connection()
         query = f"""
             SELECT event_away, event_home FROM play_data
-            WHERE event_away LIKE '{pattern_name} makes %(assist by %'
-               OR event_home LIKE '{pattern_name} makes %(assist by %'
+            WHERE event_away LIKE '{sql_pattern} makes %(assist by %'
+               OR event_home LIKE '{sql_pattern} makes %(assist by %'
         """
         df = pd.read_sql(query, conn)
         conn.close()
@@ -132,12 +138,13 @@ class PlayDataAnalyzer:
         """特定選手がスティールした相手のランキングを取得"""
         pattern_name = self._get_player_pattern(player_name)
         steal_pattern = f'steal by {pattern_name})'
+        sql_pattern = self._escape_sql(steal_pattern)
 
         conn = self._get_db_connection()
         query = f"""
             SELECT event_away, event_home FROM play_data
-            WHERE event_away LIKE 'Turnover by %{steal_pattern}%'
-               OR event_home LIKE 'Turnover by %{steal_pattern}%'
+            WHERE event_away LIKE 'Turnover by %{sql_pattern}%'
+               OR event_home LIKE 'Turnover by %{sql_pattern}%'
         """
         df = pd.read_sql(query, conn)
         conn.close()
@@ -158,12 +165,13 @@ class PlayDataAnalyzer:
         """特定選手がブロックした相手のランキングを取得"""
         pattern_name = self._get_player_pattern(player_name)
         block_pattern = f'(block by {pattern_name})'
+        sql_pattern = self._escape_sql(block_pattern)
 
         conn = self._get_db_connection()
         query = f"""
             SELECT event_away, event_home FROM play_data
-            WHERE event_away LIKE '% misses %{block_pattern}%'
-               OR event_home LIKE '% misses %{block_pattern}%'
+            WHERE event_away LIKE '% misses %{sql_pattern}%'
+               OR event_home LIKE '% misses %{sql_pattern}%'
         """
         df = pd.read_sql(query, conn)
         conn.close()
