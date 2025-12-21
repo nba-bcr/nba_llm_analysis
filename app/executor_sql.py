@@ -61,6 +61,14 @@ def get_analyzer():
     return NBAAnalyzerSQL(exclude_duplicate_names=True)
 
 
+@st.cache_resource(show_spinner=False)
+def get_play_analyzer():
+    """
+    PlayDataAnalyzerを取得（キャッシュ）
+    """
+    return PlayDataAnalyzer()
+
+
 def get_player_images() -> pd.DataFrame:
     """選手画像データを取得"""
     query = """
@@ -121,8 +129,8 @@ def execute_analysis(parsed: dict):
 
         # PlayDataAnalyzer用の関数かどうかで分岐
         if func_name in PLAY_DATA_FUNCTIONS:
-            # PlayDataAnalyzerを使用（CockroachDBから取得）
-            play_analyzer = PlayDataAnalyzer()
+            # PlayDataAnalyzerを使用（キャッシュ済み）
+            play_analyzer = get_play_analyzer()
             method = getattr(play_analyzer, func_name)
             result = method(**params)
         else:

@@ -1,7 +1,6 @@
 """プレイバイプレイデータ分析モジュール"""
 
 import re
-from collections import Counter
 import pandas as pd
 
 from src.db_connection import get_database_url
@@ -73,12 +72,6 @@ class PlayDataAnalyzer:
         """SQLのシングルクォートをエスケープ"""
         return value.replace("'", "''")
 
-    def _extract_shooter(self, event):
-        if pd.isna(event):
-            return None
-        match = re.match(r'^([A-Z]\. [A-Za-z\'\-]+)', str(event))
-        return match.group(1) if match else None
-
     def get_assisted_by_ranking(self, player_name: str, top_n: int = 10) -> pd.DataFrame:
         """特定選手がアシストした選手のランキングを取得"""
         pattern_name = self._get_player_pattern(player_name)
@@ -94,19 +87,17 @@ class PlayDataAnalyzer:
         df = pd.read_sql(query, conn)
         conn.close()
 
-        shooters = []
-        for _, row in df.iterrows():
-            if pd.notna(row['event_away']) and assist_pattern in str(row['event_away']):
-                shooter = self._extract_shooter(row['event_away'])
-                if shooter:
-                    shooters.append(shooter)
-            if pd.notna(row['event_home']) and assist_pattern in str(row['event_home']):
-                shooter = self._extract_shooter(row['event_home'])
-                if shooter:
-                    shooters.append(shooter)
+        # ベクトル化処理: 両カラムを結合してパターンでフィルタ
+        events = pd.concat([df['event_away'], df['event_home']]).dropna()
+        events = events[events.str.contains(re.escape(assist_pattern), regex=True)]
 
-        shooter_counts = Counter(shooters)
-        return pd.DataFrame(shooter_counts.most_common(top_n), columns=['playerName', 'Count'])
+        # シューター名を抽出
+        shooters = events.str.extract(r'^([A-Z]\. [A-Za-z\'\-]+)')[0].dropna()
+
+        # カウントしてランキング作成
+        shooter_counts = shooters.value_counts().head(top_n).reset_index()
+        shooter_counts.columns = ['playerName', 'Count']
+        return shooter_counts
 
     def get_assisted_to_ranking(self, player_name: str, top_n: int = 10) -> pd.DataFrame:
         """特定選手にアシストした選手のランキングを取得"""
@@ -122,17 +113,17 @@ class PlayDataAnalyzer:
         df = pd.read_sql(query, conn)
         conn.close()
 
-        pattern = rf'^{re.escape(pattern_name)} makes .+\(assist by ([A-Z]\. [A-Za-z\'\-]+)\)'
-        assisters = []
-        for _, row in df.iterrows():
-            for event in [row['event_away'], row['event_home']]:
-                if pd.notna(event):
-                    match = re.match(pattern, str(event))
-                    if match:
-                        assisters.append(match.group(1))
+        # ベクトル化処理: 両カラムを結合
+        events = pd.concat([df['event_away'], df['event_home']]).dropna()
 
-        assister_counts = Counter(assisters)
-        return pd.DataFrame(assister_counts.most_common(top_n), columns=['playerName', 'Count'])
+        # アシスター名を抽出
+        pattern = rf'^{re.escape(pattern_name)} makes .+\(assist by ([A-Z]\. [A-Za-z\'\-]+)\)'
+        assisters = events.str.extract(pattern)[0].dropna()
+
+        # カウントしてランキング作成
+        assister_counts = assisters.value_counts().head(top_n).reset_index()
+        assister_counts.columns = ['playerName', 'Count']
+        return assister_counts
 
     def get_steal_by_ranking(self, player_name: str, top_n: int = 10) -> pd.DataFrame:
         """特定選手がスティールした相手のランキングを取得"""
@@ -149,17 +140,17 @@ class PlayDataAnalyzer:
         df = pd.read_sql(query, conn)
         conn.close()
 
-        pattern = rf'Turnover by ([A-Z]\. [A-Za-z\'\-]+) .+steal by {re.escape(pattern_name)}\)'
-        victims = []
-        for _, row in df.iterrows():
-            for event in [row['event_away'], row['event_home']]:
-                if pd.notna(event):
-                    match = re.search(pattern, str(event))
-                    if match:
-                        victims.append(match.group(1))
+        # ベクトル化処理: 両カラムを結合
+        events = pd.concat([df['event_away'], df['event_home']]).dropna()
 
-        victim_counts = Counter(victims)
-        return pd.DataFrame(victim_counts.most_common(top_n), columns=['playerName', 'Count'])
+        # ターンオーバーした選手名を抽出
+        pattern = rf'Turnover by ([A-Z]\. [A-Za-z\'\-]+) .+steal by {re.escape(pattern_name)}\)'
+        victims = events.str.extract(pattern)[0].dropna()
+
+        # カウントしてランキング作成
+        victim_counts = victims.value_counts().head(top_n).reset_index()
+        victim_counts.columns = ['playerName', 'Count']
+        return victim_counts
 
     def get_block_by_ranking(self, player_name: str, top_n: int = 10) -> pd.DataFrame:
         """特定選手がブロックした相手のランキングを取得"""
@@ -176,14 +167,14 @@ class PlayDataAnalyzer:
         df = pd.read_sql(query, conn)
         conn.close()
 
-        pattern = rf'^([A-Z]\. [A-Za-z\'\-]+) misses .+\(block by {re.escape(pattern_name)}\)'
-        victims = []
-        for _, row in df.iterrows():
-            for event in [row['event_away'], row['event_home']]:
-                if pd.notna(event):
-                    match = re.match(pattern, str(event))
-                    if match:
-                        victims.append(match.group(1))
+        # ベクトル化処理: 両カラムを結合
+        events = pd.concat([df['event_away'], df['event_home']]).dropna()
 
-        victim_counts = Counter(victims)
-        return pd.DataFrame(victim_counts.most_common(top_n), columns=['playerName', 'Count'])
+        # ブロックされた選手名を抽出
+        pattern = rf'^([A-Z]\. [A-Za-z\'\-]+) misses .+\(block by {re.escape(pattern_name)}\)'
+        victims = events.str.extract(pattern)[0].dropna()
+
+        # カウントしてランキング作成
+        victim_counts = victims.value_counts().head(top_n).reset_index()
+        victim_counts.columns = ['playerName', 'Count']
+        return victim_counts
